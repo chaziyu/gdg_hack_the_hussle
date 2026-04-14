@@ -1,0 +1,357 @@
+import os
+import json
+import asyncio
+import gspread
+import pandas as pd
+from docx import Document as DocxDocument
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from google.oauth2.service_account import Credentials
+from google_calendar_utils import add_tasks_to_google_calendar
+from telegram import Bot
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+import datetime
+import re
+
+# Load environment variables
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'dist'), static_url_path='/')
+# Enable CORS for the React frontend
+CORS(app)
+
+# Initialize the Gemini client
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+# Initialize Google Sheets & Calendar constants
+SHEET_ID = os.environ.get("SPREADSHEET_ID")
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, "service_account.json")
+SCOPES_SHEETS = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+
+def get_sheets_client():
+    if not os.path.exists(SERVICE_ACCOUNT_FILE): return None
+    try:
+        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES_SHEETS)
+        return gspread.authorize(creds)
+    except Exception as e:
+        print(f"Error authorizing Google Sheets: {e}")
+        return None
+
+# Initialize Telegram constants
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+ADMIN_CHAT_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
+
+# ── Model Configuration ────────────────────────────────────────────────────────
+MODEL = "gemini-3.1-flash-lite-preview"
+FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash-preview"]
+
+# ── File paths ─────────────────────────────────────────────────────────────────
+DATA_DIR            = 'local_storage'
+CHAT_LOGS_FILE      = os.path.join(DATA_DIR, 'chat_logs.txt')
+TIMELINE_TASKS_FILE = os.path.join(DATA_DIR, 'timeline_tasks.json')
+EVENT_PLANNING_FILE = os.path.join(DATA_DIR, 'event_planning.json')
+ARCHIVES_DIR        = os.path.join(DATA_DIR, 'archives')
+HISTORY_DIR         = os.path.join(DATA_DIR, 'history')
+CHAT_HISTORY_FILE   = os.path.join(HISTORY_DIR, 'chat_history.json')
+FILE_INDEX_FILE     = os.path.join(ARCHIVES_DIR, 'file_index.json')
+
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(ARCHIVES_DIR, exist_ok=True)
+os.makedirs(HISTORY_DIR, exist_ok=True)
+
+# ── Allowed file types ─────────────────────────────────────────────────────────
+ALLOWED_EXTENSIONS = {
+    '.pdf': 'application/pdf', '.doc': 'application/msword', 
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.txt': 'text/plain', '.csv': 'text/csv',
+}
+GEMINI_UPLOADABLE_MIME = {'application/pdf', 'text/plain'}
+EXCEL_EXTENSIONS = {'.xls', '.xlsx', '.csv'}
+DOCX_EXTENSIONS  = {'.doc', '.docx'}
+
+# ── Agent Tools (CRITICAL: NO DEFAULT VALUES IN SIGNATURES) ───────────────────
+
+def update_timeline_database(tasks: list[dict]):
+    """Update the local timeline_tasks.json database with a list of tasks."""
+    try:
+        with open(TIMELINE_TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(tasks, f, indent=4)
+        return "Local timeline database updated."
+    except Exception as e: return f"Error: {e}"
+
+def update_event_planning_database(plan: dict):
+    """Update the local event_planning.json database with overall event details."""
+    try:
+        with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f:
+            json.dump(plan, f, indent=4)
+        return "Local event planning database updated."
+    except Exception as e: return f"Error: {e}"
+
+def sync_to_google_sheet(rows: list[list[str]], worksheet_name: str):
+    """Sync data directly to a Google Sheet."""
+    # Handle default value internally
+    target_sheet = worksheet_name if worksheet_name else "Live_Timeline"
+    if not SHEET_ID: return "Google Sheets Sync skipped: SPREADSHEET_ID missing."
+    gc = get_sheets_client()
+    if not gc: return "Google Sheets Sync failed: Auth error."
+    try:
+        sh = gc.open_by_key(SHEET_ID)
+        try: worksheet = sh.worksheet(target_sheet)
+        except gspread.WorksheetNotFound: worksheet = sh.add_worksheet(title=target_sheet, rows="100", cols="10")
+        worksheet.clear()
+        worksheet.update('A1', rows)
+        return f"Synced to Google Sheet '{target_sheet}'."
+    except Exception as e: return f"Error: {e}"
+
+def send_telegram_alert(message: str):
+    """Send an immediate notification to the event committee via Telegram."""
+    load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
+    if not token or not chat_id: return "Telegram alert skipped: Config missing."
+    try:
+        dynamic_bot = Bot(token=token)
+        asyncio.run(dynamic_bot.send_message(chat_id=chat_id, text=f"⚡ AGENT ALERT:\n{message}", parse_mode='Markdown'))
+        return "Telegram alert sent successfully."
+    except Exception as e: return f"Error: {e}"
+
+def summarize_and_share_event():
+    """Generate an event summary and broadcast it's details to Telegram."""
+    if not os.path.exists(EVENT_PLANNING_FILE): return "Error: No planning data."
+    try:
+        with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f: p = json.load(f)
+        msg = (f"📢 **EVENT SUMMARY: {p.get('event_name', 'Event').upper()}**\n\n"
+               f"📅 **Date:** {p.get('event_date', 'TBD')}\n"
+               f"📍 **Venue:** {p.get('event_venue', 'TBD')}\n\n"
+               f"📝 **Overview:**\n{p.get('event_summary', 'No summary.')}")
+        return send_telegram_alert(msg)
+    except Exception as e: return f"Error: {e}"
+
+AGENT_TOOLS = [
+    update_timeline_database, update_event_planning_database,
+    sync_to_google_sheet, send_telegram_alert,
+    add_tasks_to_google_calendar, summarize_and_share_event
+]
+
+def execute_gemini_task(task_fn, *args, **kwargs):
+    """
+    Executes a Gemini task with automatic fallback through the model list.
+    """
+    model_chain = [MODEL] + FALLBACK_MODELS
+    last_error = None
+    
+    for m_id in model_chain:
+        try:
+            print(f"DEBUG: Attempting task with model: {m_id}")
+            # Inject the model ID into the keyword arguments
+            if 'model' in kwargs: 
+                kwargs['model'] = m_id
+            return task_fn(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            error_msg = str(e)
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                print(f"WARNING: Model {m_id} hit quota limit. Falling back...")
+                continue
+            # If it's not a quota error, we might still want to try fallback for safety,
+            # but usually, we only fallback on 429.
+            print(f"ERROR: Model {m_id} failed with: {error_msg}")
+            # Try next model anyway if possible
+            continue
+            
+    raise last_error if last_error else Exception("All models in fallback chain failed.")
+
+# ── Persistence Helpers ──────────────────────────────────────────────────────
+
+def load_chat_history():
+    if not os.path.exists(CHAT_HISTORY_FILE): return []
+    try:
+        with open(CHAT_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+            return [types.Content(role=h['role'], parts=[types.Part(text=h['text'])]) for h in raw[-20:]]
+    except: return []
+
+def save_chat_history(session):
+    try:
+        history = session.get_history()
+        serial = [{"role": c.role, "text": c.parts[0].text} for c in history if c.parts and c.role in ["user", "model"] and getattr(c.parts[0], 'text', None)]
+        with open(CHAT_HISTORY_FILE, 'w', encoding='utf-8') as f: json.dump(serial, f, indent=4)
+    except: pass
+
+@app.route('/api/generate', methods=['POST'])
+def generate_knowledge():
+    files = request.files.getlist('files')
+    if not files: return jsonify({"error": "No files"}), 400
+    temp_paths, gemini_files, texts = [], [], []
+    try:
+        logs = open(CHAT_LOGS_FILE, 'r', encoding='utf-8').read() if os.path.exists(CHAT_LOGS_FILE) else ""
+        for f in files:
+            ext = os.path.splitext(f.filename)[1].lower()
+            mime = ALLOWED_EXTENSIONS.get(ext)
+            if not mime: continue
+            path = f"temp_{f.filename}"
+            f.save(path); temp_paths.append(path)
+            if ext in EXCEL_EXTENSIONS:
+                try:
+                    df_m = pd.read_excel(path, sheet_name=None) if ext != '.csv' else {'S1': pd.read_csv(path)}
+                    texts.append(f"File: {f.filename}\n" + "\n".join([f"Sheet {k}:\n{v.to_csv()}" for k, v in df_m.items()]))
+                except: pass
+            elif ext in DOCX_EXTENSIONS:
+                try: texts.append(f"File: {f.filename}\n" + "\n".join([p.text for p in DocxDocument(path).paragraphs]))
+                except: pass
+            elif mime in GEMINI_UPLOADABLE_MIME:
+                gemini_files.append(client.files.upload(path=path, config=types.UploadFileConfig(mime_type=mime)))
+            else:
+                try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
+                except: pass
+
+        instr = f"Analyze documents & logs. Use tools: update_timeline_database, update_event_planning_database (MANDATORY: convert dates to YYYY-MM-DD format, e.g., '2025-11-01'), sync_to_google_sheet, send_telegram_alert.\n\nLogs: {logs}\nTexts: {' '.join(texts)}"
+        
+        response = execute_gemini_task(
+            client.models.generate_content,
+            model=MODEL, # Placeholder, helper will override
+            contents=[*gemini_files, instr], 
+            config=types.GenerateContentConfig(tools=AGENT_TOOLS)
+        )
+        
+        open(CHAT_LOGS_FILE, 'w').close()
+        return jsonify({"message": "Sync complete", "response": response.text}), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
+    finally:
+        for p in temp_paths: 
+            if os.path.exists(p): os.remove(p)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    msg = request.get_json().get('message')
+    if not msg: return jsonify({"error": "No message"}), 400
+    try:
+        history = load_chat_history()
+        
+        def chat_interaction(model):
+            # We must create the session and send the message in the same fallback attempt
+            # so that if send_message fails, we can try a completely new model/session.
+            sess = client.chats.create(model=model, history=history, config=types.GenerateContentConfig(tools=AGENT_TOOLS))
+            resp = sess.send_message(msg)
+            return sess, resp
+
+        session, response = execute_gemini_task(chat_interaction, model=MODEL)
+        save_chat_history(session)
+        return jsonify({"response": response.text}), 200
+    except Exception as e: 
+        print(f"CHAT CRASH: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    if not os.path.exists(CHAT_HISTORY_FILE): return jsonify([]), 200
+    return jsonify(json.load(open(CHAT_HISTORY_FILE, 'r'))), 200
+
+@app.route('/api/knowledge', methods=['GET'])
+def get_knowledge():
+    t, p = [], {}
+    if os.path.exists(TIMELINE_TASKS_FILE): t = json.load(open(TIMELINE_TASKS_FILE, 'r'))
+    if os.path.exists(EVENT_PLANNING_FILE): p = json.load(open(EVENT_PLANNING_FILE, 'r'))
+    return jsonify({"timeline_tasks": t, "event_planning": p}), 200
+
+@app.route('/api/files', methods=['GET'])
+def get_files():
+    if not os.path.exists(FILE_INDEX_FILE): return jsonify([]), 200
+    return jsonify(json.load(open(FILE_INDEX_FILE, 'r'))), 200
+
+@app.route('/api/settings/event', methods=['POST'])
+def manage_event_name():
+    data = request.get_json()
+    name = data.get('event_name') if data else ""
+    if not name: return jsonify({"error": "Event name required"}), 400
+    planning = {}
+    if os.path.exists(EVENT_PLANNING_FILE):
+        try:
+            with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f: planning = json.load(f)
+        except: pass
+    planning['event_name'] = name
+    try:
+        with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f: json.dump(planning, f, indent=4)
+        return jsonify({"message": "Event name updated"}), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/api/settings/calendar', methods=['GET', 'POST'])
+def manage_calendar_id():
+    if request.method == 'POST':
+        data = request.get_json()
+        cid = data.get('calendar_id') if data else ""
+        env_path = os.path.join(BASE_DIR, '.env')
+        lines = open(env_path, 'r').readlines() if os.path.exists(env_path) else []
+        with open(env_path, 'w') as f:
+            found = False
+            for l in lines:
+                if l.startswith("GOOGLE_CALENDAR_ID="): f.write(f"GOOGLE_CALENDAR_ID={cid}\n"); found = True
+                else: f.write(l)
+            if not found: f.write(f"GOOGLE_CALENDAR_ID={cid}\n")
+        os.environ["GOOGLE_CALENDAR_ID"] = cid
+        return jsonify({"message": "Calendar ID updated"}), 200
+    return jsonify({"calendar_id": os.environ.get("GOOGLE_CALENDAR_ID", "")}), 200
+
+@app.route('/api/actions/summarize', methods=['GET'])
+def api_summarize(): return jsonify({"message": summarize_and_share_event()})
+
+@app.route('/api/actions/reminders', methods=['GET'])
+def api_reminders():
+    if not os.path.exists(TIMELINE_TASKS_FILE): return jsonify({"message": "No tasks"}), 404
+    tasks = json.load(open(TIMELINE_TASKS_FILE, 'r'))
+    msg = "📅 **FULL TASK LIST**\n" + "\n".join([f"• {t.get('title')} ({t.get('status')})" for t in tasks])
+    return jsonify({"message": send_telegram_alert(msg)})
+
+@app.route('/api/actions/calendar/sync', methods=['POST'])
+def api_sync():
+    data = request.get_json() or {}
+    calendar_email = data.get('calendar_email') or os.environ.get("GOOGLE_CALENDAR_ID")
+    event_date = data.get('event_date')
+
+    # Fallback to local database if not provided in request
+    if not event_date and os.path.exists(EVENT_PLANNING_FILE):
+        try:
+            with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
+                event_date = json.load(f).get('event_date')
+        except: pass
+
+    if not event_date or not calendar_email:
+        return jsonify({"message": "Error: event_date or calendar_email missing."}), 400
+
+    return jsonify({"message": add_tasks_to_google_calendar(event_date, calendar_email)})
+
+@app.route('/api/chat/clear', methods=['POST'])
+def clear_history():
+    if os.path.exists(CHAT_HISTORY_FILE): os.remove(CHAT_HISTORY_FILE)
+    return jsonify({"message": "History cleared"}), 200
+
+@app.route('/api/knowledge/clear', methods=['POST'])
+def api_clear_knowledge():
+    for f in [TIMELINE_TASKS_FILE, EVENT_PLANNING_FILE]:
+        if os.path.exists(f):
+            with open(f, 'w', encoding='utf-8') as file:
+                json.dump([] if f == TIMELINE_TASKS_FILE else {}, file)
+    return jsonify({"message": "Knowledge database reset"}), 200
+
+@app.route('/api/files/clear', methods=['POST'])
+def api_clear_files():
+    if os.path.exists(CHAT_LOGS_FILE): open(CHAT_LOGS_FILE, 'w').close()
+    if os.path.exists(FILE_INDEX_FILE):
+        with open(FILE_INDEX_FILE, 'w', encoding='utf-8') as f: json.dump([], f)
+    return jsonify({"message": "File history and logs cleared"}), 200
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
+
+if __name__ == '__main__':
+    from waitress import serve as ws
+    print("🚀 Unified Server starting on http://localhost:5000")
+    ws(app, host='0.0.0.0', port=5000)

@@ -1,0 +1,6 @@
+{
+  "name": "Data Sync & Intelligence",
+  "description": "A dashboard to sync PDFs with Telegram chat logs to generate timelines, and an AI agent to query the data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

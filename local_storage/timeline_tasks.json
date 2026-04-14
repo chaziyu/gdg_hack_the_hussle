@@ -1,0 +1,37 @@
+[
+    {
+        "participants": 100,
+        "due_date": "2025-11-09",
+        "task": "Color Run Registration"
+    },
+    {
+        "participants": 100,
+        "due_date": "2025-11-09",
+        "task": "Color Run Station 1"
+    },
+    {
+        "task": "Color Run Station 2",
+        "participants": 100,
+        "due_date": "2025-11-09"
+    },
+    {
+        "task": "Color Run Station 3",
+        "participants": 100,
+        "due_date": "2025-11-09"
+    },
+    {
+        "participants": 30,
+        "due_date": "2025-11-04",
+        "task": "DIY Art Making Workshop"
+    },
+    {
+        "participants": 50,
+        "due_date": "2025-11-07",
+        "task": "PEKOM Station Games"
+    },
+    {
+        "task": "Wall of Thoughts",
+        "participants": null,
+        "due_date": "2025-11-07"
+    }
+]
