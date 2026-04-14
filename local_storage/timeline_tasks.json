@@ -1,38 +1,26 @@
 [
     {
-        "task_name": "Audience Age-Group Research",
-        "deadline": "1 week before event",
-        "description": "Conduct research on target audience age group and adjust activity complexity.",
-        "status": "Pending"
+        "time": "9:50 AM - 11:10 AM",
+        "name": "Station Games - The Path Of Focus"
     },
     {
-        "task_name": "Visual Aid Preparation",
-        "description": "Develop PPT slides or video tutorials for workshop instructions (DIY Art).",
-        "status": "Pending",
-        "deadline": "3 days before event"
+        "time": "9:50 AM - 11:10 AM",
+        "name": "Station Games - Sticker Shout Out"
     },
     {
-        "status": "Pending",
-        "description": "Confirm all facility requirements (fridge access, power outlets) and secure venue keys.",
-        "deadline": "2 days before event",
-        "task_name": "Facility & Key Verification"
+        "time": "9:50 AM - 11:10 AM",
+        "name": "Station Games - Mood in Motion"
     },
     {
-        "status": "Pending",
-        "description": "Conduct dry run for station games without conflicting with other major commitments.",
-        "deadline": "1 day before event",
-        "task_name": "Scheduled Dry Run"
+        "time": "9:50 AM - 11:10 AM",
+        "name": "Station Games - Peace Bingo"
     },
     {
-        "task_name": "Route Safety Deployment",
-        "description": "Deploy marshals at all intersections and coordinate with Polis Bantuan.",
-        "status": "Pending",
-        "deadline": "Event Morning"
+        "time": "12:30 PM - 1:30 PM",
+        "name": "Scratch Session"
     },
     {
-        "deadline": "Post-Registration",
-        "status": "Pending",
-        "description": "Finalize budget and order stocks based on early registration numbers.",
-        "task_name": "Budget & Inventory Finalization"
+        "time": "1:30 PM - 3:00 PM",
+        "name": "Chocolate Workshop"
     }
 ]

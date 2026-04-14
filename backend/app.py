@@ -180,7 +180,7 @@ def summarize_and_share_event():
         
         e_date = p.get('event_date') or p.get('date') or p.get('Date') or 'TBD'
         e_venue = p.get('event_venue') or p.get('venue') or p.get('Venue') or p.get('Location') or 'TBD'
-        e_summary = p.get('event_summary') or p.get('summary') or p.get('target_audience', 'No summary recorded.')
+        e_summary = p.get('event_summary') or p.get('summary') or p.get('description') or p.get('Description') or 'No summary recorded.'
         
         msg = (f"📢 **EVENT SUMMARY: {p.get('event_name', 'Event').upper()}**\n\n"
                f"📅 **Date:** {e_date}\n"

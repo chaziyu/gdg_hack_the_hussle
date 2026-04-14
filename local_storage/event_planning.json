@@ -110,7 +110,7 @@
             "Activity": "Plant sunflower seeds in personalized cups. Post on Instagram for mystery prize."
         }
     ],
-    "event_name": "Post-Mortem Action Plan: Event Series Improvement",
+    "event_name": "Share Your Love",
     "contingency_plan": {
         "heavy_rain": {
             "prepared_activities": "Indoor games",
@@ -154,5 +154,12 @@
     "logistics_standardization": "1. Secure all venue keys 24 hours prior. 2. Prepare 'Cleanup Kits' (table covers, rags, alcohol) for art sessions. 3. Ensure heavy transport (lorry/multiple cars) is booked for equipment-heavy events.",
     "program_guidelines": "1. Activities must be age-appropriate (7-12 vs university students). 2. Minimize luck-based games; prioritize skill or engagement. 3. Mandatory visual aids (PPT/Video) for all workshops.",
     "procurement_policy": "1. Open registrations 4 weeks early to finalize budget for materials (T-shirts, color powder). 2. Conduct quality checks on all materials (e.g., flower pots, chocolate) before event day.",
-    "department_restructuring": "Merge 'Safety Department' into 'Logistics' or 'Program & Activity' to optimize manpower for setup and cleanup duties."
+    "department_restructuring": "Merge 'Safety Department' into 'Logistics' or 'Program & Activity' to optimize manpower for setup and cleanup duties.",
+    "committee_members": "21",
+    "children_age_group": "7-12 years old (Rumah Kasih)",
+    "participants": "30 children",
+    "group_details": {
+        "group_structure": "5 groups of 7 people (2 committee + 5 children), 1 group of 6 people (1 committee + 5 children)",
+        "total_groups": 6
+    }
 }
