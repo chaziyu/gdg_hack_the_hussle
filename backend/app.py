@@ -143,6 +143,15 @@ def update_event_planning_database(plan: dict):
         return "Local event planning database updated."
     except Exception as e: return f"Error: {e}"
 
+def get_event_planning_database():
+    """Retrieve the current overall event planning details from the database. Use this tool when you need to read or show the current event plan."""
+    if not os.path.exists(EVENT_PLANNING_FILE): return "No event planning data found."
+    try:
+        with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
+            return json.dumps(json.load(f))
+    except Exception as e: return f"Error: {e}"
+
+
 def sync_to_google_sheet(rows: list[list[str]], worksheet_name: str):
     """Sync data directly to a Google Sheet."""
     # Handle default value internally
@@ -190,7 +199,7 @@ def summarize_and_share_event():
     except Exception as e: return f"Error: {e}"
 
 AGENT_TOOLS = [
-    update_timeline_database, update_event_planning_database,
+    update_timeline_database, update_event_planning_database, get_event_planning_database,
     sync_to_google_sheet, send_telegram_alert,
     summarize_and_share_event
 ]
@@ -232,16 +241,24 @@ def execute_gemini_task(task_fn, *args, **kwargs):
                 resp_text = ""
                 
             if resp.function_calls:
+                tool_responses = []
                 for call in resp.function_calls:
                     for tool in AGENT_TOOLS:
                         if tool.__name__ == call.name:
                             try:
                                 res = tool(**call.args)
-                                resp_text += f"\n[Executed {call.name}: {res}]"
+                                resp_text += f"\n[Executed {call.name}]"
                             except Exception as e:
-                                resp_text += f"\n[Failed to execute {call.name}: {e}]"
-                                
-            # We return a dummy object with text property so the caller code (e.g. `response.text`) keeps working
+                                res = str(e)
+                                resp_text += f"\n[Failed {call.name}: {e}]"
+                            tool_responses.append(
+                                types.Part(function_response=types.FunctionResponse(
+                                    name=call.name, response={"result": res}
+                                ))
+                            )
+                if tool_responses:
+                    resp_text += "\n"
+            
             class DummyResp:
                 def __init__(self, t): self.text = t
             return DummyResp(resp_text.strip() or "Sync completed.")
@@ -466,16 +483,30 @@ def chat():
                 except ValueError:
                     resp_text = ""
                 
-                # Manually execute tools
+                # Manually execute tools and send response back to the model
                 if resp.function_calls:
+                    tool_responses = []
                     for call in resp.function_calls:
                         for tool in AGENT_TOOLS:
                             if tool.__name__ == call.name:
                                 try:
                                     res = tool(**call.args)
-                                    resp_text += f"\n[Action: {call.name} executed. Result: {res}]"
                                 except Exception as e:
-                                    resp_text += f"\n[Action: {call.name} failed. Error: {e}]"
+                                    res = f"Error: {e}"
+                                tool_responses.append(
+                                    types.Part(function_response=types.FunctionResponse(
+                                        name=call.name, response={"result": res}
+                                    ))
+                                )
+                    
+                    if tool_responses:
+                        # Send responses back to allow the model to summarize it
+                        resp2 = sess.send_message(tool_responses)
+                        try:
+                            if resp2.text:
+                                resp_text += ("\n\n" + resp2.text).strip()
+                        except ValueError:
+                            pass
 
                 if not resp_text.strip():
                     resp_text = "Action completed."
