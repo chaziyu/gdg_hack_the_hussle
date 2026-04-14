@@ -233,7 +233,8 @@ def load_chat_history():
                     elif 'function_call' in p:
                         parts.append(types.Part(function_call=types.FunctionCall(
                             name=p['function_call']['name'],
-                            args=p['function_call']['args']
+                            args=p['function_call']['args'],
+                            thought_signature=p['function_call'].get('thought_signature')
                         )))
                     elif 'function_response' in p:
                         parts.append(types.Part(function_response=types.FunctionResponse(
@@ -265,6 +266,8 @@ def save_chat_history(session):
                         "name": part.function_call.name,
                         "args": part.function_call.args
                     }
+                    if hasattr(part.function_call, 'thought_signature') and part.function_call.thought_signature:
+                        p_dict['function_call']['thought_signature'] = part.function_call.thought_signature
                 if part.function_response:
                     p_dict['function_response'] = {
                         "name": part.function_response.name,

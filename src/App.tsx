@@ -39,11 +39,9 @@ export default function App() {
   const [syncedFiles, setSyncedFiles] = useState<any[]>([]);
   const [isChatting, setIsChatting] = useState(false);
   const [detectedDate, setDetectedDate] = useState<string | null>(null);
-  const [calendarId, setCalendarId] = useState('');
   const [eventName, setEventName] = useState('');
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null); // null means checking
   const [onboardingLoading, setOnboardingLoading] = useState(false);
-  const [isEditingCalendar, setIsEditingCalendar] = useState(false);
   const [actionStatus, setActionStatus] = useState<{ id: string, status: 'idle' | 'loading' | 'success' | 'error' }>({ id: '', status: 'idle' });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,14 +98,6 @@ export default function App() {
         setSyncedFiles(fData);
       }
 
-      // 2b. Fetch Calendar ID
-      const cRes = await fetch('/api/settings/calendar');
-      if (cRes.ok) {
-        const cData = await cRes.json();
-        fetchedCalendarId = cData.calendar_id || '';
-        setCalendarId(fetchedCalendarId);
-      }
-
         // 3. Fetch Knowledge
         const kRes = await fetch('/api/knowledge');
         if (kRes.ok) {
@@ -125,7 +115,7 @@ export default function App() {
           }
 
           // Determine onboarding status
-          setIsOnboarded(!!eName && !!fetchedCalendarId);
+          setIsOnboarded(!!eName);
         }
       } catch (err) {
         console.error("Error fetching initial data:", err);
@@ -264,24 +254,6 @@ export default function App() {
     }
   };
 
-  const saveCalendarId = async () => {
-    setActionStatus({ id: 'save-cal', status: 'loading' });
-    try {
-      const res = await fetch('/api/settings/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calendar_id: calendarId }),
-      });
-      if (!res.ok) throw new Error('Failed to save calendar ID');
-      
-      setActionStatus({ id: 'save-cal', status: 'success' });
-      setIsEditingCalendar(false);
-      setTimeout(() => setActionStatus({ id: '', status: 'idle' }), 2000);
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-      setActionStatus({ id: 'save-cal', status: 'error' });
-    }
-  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -289,8 +261,7 @@ export default function App() {
 
   const handleOnboardingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!eventName.trim() || !calendarId.trim()) return;
-
+    if (!eventName.trim()) return;
     setOnboardingLoading(true);
     try {
       // 1. Save Event Name
@@ -300,14 +271,6 @@ export default function App() {
         body: JSON.stringify({ event_name: eventName.trim() }),
       });
       if (!eRes.ok) throw new Error('Failed to save event name');
-
-      // 2. Save Calendar Email
-      const cRes = await fetch('/api/settings/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calendar_id: calendarId.trim() }),
-      });
-      if (!cRes.ok) throw new Error('Failed to save calendar email');
 
       setIsOnboarded(true);
     } catch (err: any) {
@@ -364,21 +327,6 @@ export default function App() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest ml-1">Google Calendar Email</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input 
-                  type="email"
-                  required
-                  value={calendarId}
-                  onChange={e => setCalendarId(e.target.value)}
-                  placeholder="your-email@gmail.com"
-                  className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-12 pr-4 py-4 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
-                />
-              </div>
-              <p className="text-[10px] text-gray-500 italic ml-1">* Make sure your service account has access to this calendar.</p>
-            </div>
 
             <button
               type="submit"
@@ -590,43 +538,6 @@ export default function App() {
                 <Zap className="w-5 h-5 text-amber-400" />
                 <h2 className="text-xl font-semibold">Quick Intelligence Actions</h2>
               </div>
-              
-              {/* Calendar ID Settings UI */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider ml-1">Calendar Email (ID)</span>
-                <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 min-w-[180px]">
-                  {isEditingCalendar ? (
-                    <div className="flex items-center gap-2 w-full">
-                        <input 
-                          type="email"
-                          value={calendarId}
-                          onChange={(e) => setCalendarId(e.target.value)}
-                          placeholder="your-email@gmail.com"
-                          className="bg-transparent border-none text-xs w-full focus:ring-0 p-0 text-indigo-100"
-                          autoFocus
-                        />
-                        <button onClick={saveCalendarId} className="hover:bg-emerald-500/20 p-1 rounded transition-colors">
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                        </button>
-                        <button onClick={() => setIsEditingCalendar(false)} className="hover:bg-rose-500/20 p-1 rounded transition-colors">
-                          <X className="w-4 h-4 text-rose-400" />
-                        </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between w-full gap-3">
-                        <span className="text-xs text-indigo-100/70 truncate max-w-[150px] font-mono">
-                          {calendarId || "email@example.com"}
-                        </span>
-                        <button 
-                          onClick={() => setIsEditingCalendar(true)}
-                          className="text-[10px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors"
-                        >
-                          {calendarId ? "Change" : "Set Email"}
-                        </button>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
             <div className="flex items-center gap-2">
                {detectedDate ? (
@@ -686,27 +597,6 @@ export default function App() {
               )}
             </button>
 
-            {/* Google Calendar */}
-            <button
-              onClick={() => runAction('calendar', '/api/actions/calendar/sync', 'POST')}
-              disabled={actionStatus.status === 'loading' || !detectedDate}
-              className={`group relative border p-4 rounded-xl flex flex-col items-center gap-3 transition-all ${
-                !detectedDate 
-                ? 'bg-gray-800/50 border-gray-800 text-gray-600 cursor-not-allowed opacity-50' 
-                : 'bg-gray-800 hover:bg-gray-750 border-gray-700 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10'
-              }`}
-            >
-              <div className={`p-3 rounded-lg group-hover:scale-110 transition-transform ${!detectedDate ? 'bg-gray-700 text-gray-600' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div className="text-center">
-                <span className="block font-semibold">Sync to Calendar</span>
-                <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Add All Tasks</span>
-              </div>
-              {actionStatus.id === 'calendar' && actionStatus.status === 'loading' && (
-                <Loader2 className="absolute top-2 right-2 w-4 h-4 animate-spin text-emerald-400" />
-              )}
-            </button>
           </div>
         </div>
 

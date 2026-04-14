@@ -1,20 +1,37 @@
 [
     {
-        "end_date": "2025-11-07",
-        "name": "Wall of Thoughts",
-        "description": "Students share thoughts, messages, or feelings through sticky notes on a board to express emotions.",
-        "start_date": "2025-11-03"
+        "start_time": "17:10",
+        "duration": 5,
+        "task": "Opening Speech (Greeting & Theme)"
     },
     {
-        "name": "DIY Art Making"
+        "start_time": "17:15",
+        "task": "Welcome & Safety Briefing",
+        "duration": 5
     },
     {
-        "name": "Station Games"
+        "start_time": "17:20",
+        "duration": 10,
+        "task": "Materials & Live Demonstration"
     },
     {
-        "name": "Colour Run"
+        "start_time": "17:30",
+        "task": "Hands-on Creation Time",
+        "duration": 25
     },
     {
-        "name": "Share Your Love"
+        "duration": 5,
+        "task": "Curing, Cleaning & Session Wrap-up",
+        "start_time": "17:55"
+    },
+    {
+        "start_time": "18:00",
+        "duration": 45,
+        "task": "Session Swap / Repeat Workshop"
+    },
+    {
+        "start_time": "18:45",
+        "duration": 5,
+        "task": "Combined Group Photo & Final Closing (BT3)"
     }
 ]
