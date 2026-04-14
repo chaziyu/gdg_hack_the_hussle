@@ -1,16 +1,37 @@
 {
-    "pics": [
-        "Lim Xuan Ning",
-        "Daniel Goh Zhi Qian"
+    "date": "2025-11-04",
+    "staff": [
+        {
+            "name": "Teh Jia Jie",
+            "role": "PIC BT3 (Resin)"
+        },
+        {
+            "name": "Chew Chen Xi",
+            "role": "PIC BT3 (Resin)"
+        },
+        {
+            "name": "Tan Jun Yong",
+            "role": "PIC BT3 & Registration (Google Form)"
+        },
+        {
+            "name": "Lim Xuan Ning",
+            "role": "PIC BT4 (Natural Art)"
+        },
+        {
+            "name": "Daniel Goh Zhi Qian",
+            "role": "PIC BT4 (Natural Art)"
+        }
     ],
-    "title": "DIY Art Making Workshop: Natural Element Framed Art",
-    "feedback_action_items": [
-        "Prepare PPT slides for visual instructions",
-        "Increase quantity of UHU glue to avoid waiting",
-        "Provide table coverings (newspaper or plastic) for easier cleanup",
-        "Include cleaning kits (cloths, alcohol) for workspace maintenance",
-        "Consider providing masks and larger variety of decorations"
+    "description": "A mindfulness-focused DIY workshop featuring Epoxy Resin Keychains and Natural Element Framed Art. 30 participants divided into two sessions across two venues.",
+    "logistics_requirements": [
+        "Registration counter at Block B entrance",
+        "2 kain buruk (cleaning cloths) per logistics member",
+        "Newspaper or plastic table covers (based on feedback)",
+        "Alcohol for cleaning resin stains (based on feedback)",
+        "UHU glue and dried herbs (increase quantity)",
+        "Masks and gloves (Safety requirement)"
     ],
-    "participants_count": 30,
-    "location": "BT4 (Natural Art) & BT3 (Epoxy Resin)"
+    "participants_target": 30,
+    "event_name": "DIY Art Making Workshop",
+    "location": "BT3 & BT4 (Block B)"
 }
