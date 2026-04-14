@@ -229,9 +229,9 @@ def execute_gemini_task(task_fn, *args, **kwargs):
                 if 'config' in kwargs:
                     kwargs['config'].cached_content = cache_name
                     kwargs['config'].system_instruction = None
-                    kwargs['config'].tools = None
+                    # Do NOT set tools to None here; they are needed for the model to act on the cache
                 else:
-                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name, automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
+                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name, tools=AGENT_TOOLS, automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
             
             resp = task_fn(*args, **kwargs)
             
@@ -441,11 +441,18 @@ def generate_knowledge():
         except Exception as e:
             print(f"CACHE CREATION ERROR: {e}")
             # Fallback to standard non-cached generation if cache fails
-            # Initial call to verify and act
+            # We must include the actual content (texts + files) in the fallback message
+            fallback_contents = [instr] # Standard instruction
+            for gf in gemini_files:
+                fallback_contents.append(types.Part(file_data=types.FileData(mime_type=gf.mime_type, file_uri=gf.uri)))
+            if texts:
+                fallback_contents.append(types.Part(text="\n\n".join(texts)))
+            fallback_contents.append(types.Part(text="Read all uploaded documents. First, update the event planning database with the overall Big Event details and summary. Then, update the timeline database with all consolidated tasks."))
+
             response = execute_gemini_task(
                 client.models.generate_content,
                 model=MODEL,
-                contents="Read all uploaded documents. First, update the event planning database with the overall Big Event details and summary. Then, update the timeline database with all consolidated tasks.", 
+                contents=fallback_contents, 
                 config=types.GenerateContentConfig(tools=AGENT_TOOLS)
             )
         

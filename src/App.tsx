@@ -98,31 +98,35 @@ export default function App() {
         const fData = await fRes.json();
         setSyncedFiles(fData);
       }
+      // 3. Fetch Knowledge
+      const kRes = await fetch('/api/knowledge');
+      if (kRes.ok) {
+        const kData = await kRes.json();
+        const eName = kData.event_planning?.event_name || '';
+        setEventName(eName);
 
-        // 3. Fetch Knowledge
-        const kRes = await fetch('/api/knowledge');
-        if (kRes.ok) {
-          const kData = await kRes.json();
-          const eName = kData.event_planning?.event_name || '';
-          setEventName(eName);
-
-          if (kData.timeline_tasks?.length > 0 || Object.keys(kData.event_planning || {}).length > 0) {
-            setSyncSuccess(true);
-          }
-          if (kData.event_planning?.event_date && kData.event_planning.event_date !== 'Event Day') {
-            setDetectedDate(kData.event_planning.event_date);
-          } else {
-            setDetectedDate(null);
-          }
-
-          // Determine onboarding status
-          setIsOnboarded(!!eName);
+        if (kData.timeline_tasks?.length > 0 || Object.keys(kData.event_planning || {}).length > 0) {
+          setSyncSuccess(true);
         }
-      } catch (err) {
-        console.error("Error fetching initial data:", err);
-        setIsOnboarded(false); // Assume not onboarded on error
+        if (kData.event_planning?.event_date && kData.event_planning.event_date !== 'Event Day') {
+          setDetectedDate(kData.event_planning.event_date);
+        } else {
+          setDetectedDate(null);
+        }
+
+        // Determine onboarding status - Improved logic to avoid redirection loops
+        if (eName) {
+          setIsOnboarded(true);
+        } else if (isOnboarded === null) {
+          // Only set to false on initial load if no event name exists
+          setIsOnboarded(false);
+        }
       }
-    };
+    } catch (err) {
+      console.error("Error fetching initial data:", err);
+      if (isOnboarded === null) setIsOnboarded(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
