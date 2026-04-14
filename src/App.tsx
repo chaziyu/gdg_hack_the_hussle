@@ -78,16 +78,17 @@ export default function App() {
   // ── Data Fetching ──────────────────────────────────────────────────────────
   const fetchData = async () => {
     try {
-      let fetchedCalendarId = '';
-
       // 1. Fetch History
       const hRes = await fetch('/api/history');
       if (hRes.ok) {
         const hData = await hRes.json();
-        const mapped = hData.map((m: any) => ({
-          role: m.role === 'model' ? 'ai' : 'user',
-          content: m.text
-        }));
+        const mapped = hData
+          .filter((m: any) => m.role === 'user' || m.role === 'model')
+          .map((m: any) => ({
+            role: m.role === 'model' ? 'ai' : 'user',
+            content: (m.parts ?? []).find((p: any) => p.text)?.text ?? ''
+          }))
+          .filter((m: any) => m.content);
         setMessages(mapped);
       }
 
@@ -601,7 +602,7 @@ export default function App() {
         </div>
 
         {/* ── Agent Chat Panel ─────────────────────────────────────────────── */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-xl flex flex-col h-[620px] lg:h-auto">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-xl flex flex-col h-[620px] lg:h-auto lg:col-span-2">
           <div className="p-6 border-b border-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-emerald-400" />

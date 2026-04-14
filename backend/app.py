@@ -1,13 +1,13 @@
 import os
 import json
-import asyncio
+import tempfile
+import requests
 import gspread
 import pandas as pd
 from docx import Document as DocxDocument
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from google.oauth2.service_account import Credentials
-from telegram import Bot
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -48,7 +48,7 @@ MODEL = "gemini-3.1-flash-lite-preview"
 FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash-preview"]
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-DATA_DIR            = 'local_storage'
+DATA_DIR            = os.path.join(BASE_DIR, 'local_storage')
 CHAT_LOGS_FILE      = os.path.join(DATA_DIR, 'chat_logs.txt')
 TIMELINE_TASKS_FILE = os.path.join(DATA_DIR, 'timeline_tasks.json')
 EVENT_PLANNING_FILE = os.path.join(DATA_DIR, 'event_planning.json')
@@ -148,9 +148,10 @@ def send_telegram_alert(message: str):
     chat_id = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
     if not token or not chat_id: return "Telegram alert skipped: Config missing."
     try:
-        dynamic_bot = Bot(token=token)
-        asyncio.run(dynamic_bot.send_message(chat_id=chat_id, text=f"⚡ AGENT ALERT:\n{message}", parse_mode='Markdown'))
-        return "Telegram alert sent successfully."
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": f"⚡ AGENT ALERT:\n{message}"}
+        r = requests.post(url, json=payload, timeout=10)
+        return "Telegram alert sent successfully." if r.ok else f"Telegram error: {r.text}"
     except Exception as e: return f"Error: {e}"
 
 def summarize_and_share_event():
@@ -294,8 +295,10 @@ def generate_knowledge():
             ext = os.path.splitext(f.filename)[1].lower()
             mime = ALLOWED_EXTENSIONS.get(ext)
             if not mime: continue
-            path = f"temp_{f.filename}"
-            f.save(path); temp_paths.append(path)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                f.save(tmp.name)
+                path = tmp.name
+            temp_paths.append(path)
             if ext in EXCEL_EXTENSIONS:
                 try:
                     df_m = pd.read_excel(path, sheet_name=None) if ext != '.csv' else {'S1': pd.read_csv(path)}
@@ -331,8 +334,8 @@ def generate_knowledge():
                     display_name="Project Memory Cache",
                     system_instruction=instr,
                     contents=cache_contents,
-                    tools=AGENT_TOOLS,
                     ttl="3600s", # 1 hour
+                    # Note: tools are NOT frozen into cache; they are passed in generate_content calls.
                 )
             )
             
@@ -368,6 +371,17 @@ def generate_knowledge():
                 config=types.GenerateContentConfig(tools=AGENT_TOOLS)
             )
         
+        # BUG 5 FIX: Write processed file names to the persistent file index
+        file_index = []
+        if os.path.exists(FILE_INDEX_FILE):
+            try:
+                with open(FILE_INDEX_FILE, 'r', encoding='utf-8') as fi: file_index = json.load(fi)
+            except: pass
+        for uf in files:
+            uf_ext = os.path.splitext(uf.filename)[1].lower()
+            if ALLOWED_EXTENSIONS.get(uf_ext):
+                file_index.append({"original_name": uf.filename, "timestamp": datetime.datetime.now().isoformat()})
+        with open(FILE_INDEX_FILE, 'w', encoding='utf-8') as fi: json.dump(file_index, fi, indent=4)
         return jsonify({"message": "Sync complete", "response": response.text}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
     finally:
