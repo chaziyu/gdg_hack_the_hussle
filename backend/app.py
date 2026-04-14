@@ -13,44 +13,19 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 import datetime
-import re
+from pydantic import BaseModel, Field
 
 # Load environment variables
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'dist'), static_url_path='/')
-# Enable CORS for the React frontend
 CORS(app)
 
-# Initialize the Gemini client
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-# Initialize Google Sheets & Calendar constants
-SHEET_ID = os.environ.get("SPREADSHEET_ID")
-SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, "service_account.json")
-SCOPES_SHEETS = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-
-def get_sheets_client():
-    if not os.path.exists(SERVICE_ACCOUNT_FILE): return None
-    try:
-        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES_SHEETS)
-        return gspread.authorize(creds)
-    except Exception as e:
-        print(f"Error authorizing Google Sheets: {e}")
-        return None
-
-# Initialize Telegram constants
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-ADMIN_CHAT_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
-
-# ── Model Configuration ────────────────────────────────────────────────────────
-MODEL = "gemini-3.1-flash-lite-preview"
-FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash-preview"]
-
-# ── File paths ─────────────────────────────────────────────────────────────────
+# ── File paths & Constants ──────────────────────────────────────────────────────
 DATA_DIR            = os.path.join(BASE_DIR, 'local_storage')
-CHAT_LOGS_FILE      = os.path.join(DATA_DIR, 'chat_logs.txt')
 TIMELINE_TASKS_FILE = os.path.join(DATA_DIR, 'timeline_tasks.json')
 EVENT_PLANNING_FILE = os.path.join(DATA_DIR, 'event_planning.json')
 ARCHIVES_DIR        = os.path.join(DATA_DIR, 'archives')
@@ -58,546 +33,186 @@ HISTORY_DIR         = os.path.join(DATA_DIR, 'history')
 CHAT_HISTORY_FILE   = os.path.join(HISTORY_DIR, 'chat_history.json')
 FILE_INDEX_FILE     = os.path.join(ARCHIVES_DIR, 'file_index.json')
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(ARCHIVES_DIR, exist_ok=True)
-os.makedirs(HISTORY_DIR, exist_ok=True)
+for d in [DATA_DIR, ARCHIVES_DIR, HISTORY_DIR]: os.makedirs(d, exist_ok=True)
 
-# ── Long-Context Caching Metadata ──────────────────────────────────────────────
-CACHE_METADATA_FILE = os.path.join(DATA_DIR, 'cache_metadata.json')
+MODEL = "gemini-3.1-flash-lite-preview"
+FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
 
-def get_cache_metadata():
-    if not os.path.exists(CACHE_METADATA_FILE): return {}
-    try:
-        with open(CACHE_METADATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except: return {}
+# ── Structured Output Schemas (The Nested Hierarchy) ───────────────────────────
 
-def save_cache_metadata(metadata):
-    try:
-        with open(CACHE_METADATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, indent=4)
-    except Exception as e:
-        print(f"Error saving cache metadata: {e}")
+class TaskItem(BaseModel):
+    task_name: str = Field(description="The name of the task")
+    status: str = Field(description="Current status (e.g., Pending, Completed)")
+    time: str = Field(description="Deadline or schedule time")
 
-def get_valid_cache(model_id):
-    metadata = get_cache_metadata()
-    cache_info = metadata.get(model_id)
-    if not cache_info: return None
-    
-    # Check if expired
-    expiry = datetime.datetime.fromisoformat(cache_info['expiry'])
-    if datetime.datetime.now() > expiry:
-        return None
-    return cache_info['name']
+class SubEvent(BaseModel):
+    sub_event_name: str = Field(description="Name of the specific program/activity (e.g., 'Colour Run', 'Station Game')")
+    description: str = Field(description="What this specific sub-event is about")
+    associated_files: list[str] = Field(description="List the exact filenames that contained information about this sub-event")
+    tasks: list[TaskItem] = Field(description="Tasks specifically belonging to this sub-event")
 
-# ── Allowed file types ─────────────────────────────────────────────────────────
-ALLOWED_EXTENSIONS = {
-    '.pdf': 'application/pdf', '.doc': 'application/msword', 
-    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    '.txt': 'text/plain', '.csv': 'text/csv',
-    '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.avi': 'video/x-msvideo',
-    '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
-}
-GEMINI_UPLOADABLE_MIME = {
-    'application/pdf', 'text/plain', 'video/mp4', 'video/quicktime', 
-    'video/webm', 'video/x-msvideo', 'audio/mpeg', 'audio/wav'
-}
-EXCEL_EXTENSIONS = {'.xls', '.xlsx', '.csv'}
-DOCX_EXTENSIONS  = {'.doc', '.docx'}
-VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm', '.avi'}
-AUDIO_EXTENSIONS = {'.mp3', '.wav'}
+class EventExtractionSchema(BaseModel):
+    event_name: str = Field(description="The overarching macro-event name (e.g., Mental Health Week 2025)")
+    event_summary: str = Field(description="A holistic summary of the entire event")
+    sub_events: list[SubEvent] = Field(description="An array of all distinct sub-programs or activities.")
 
-# ── Agent Tools (CRITICAL: NO DEFAULT VALUES IN SIGNATURES) ───────────────────
-
-def update_timeline_database(tasks: list[dict]):
-    """Update the local timeline_tasks.json database with a list of tasks."""
-    try:
-        with open(TIMELINE_TASKS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(tasks, f, indent=4)
-        return "Local timeline database updated."
-    except Exception as e: return f"Error: {e}"
-
-def update_event_planning_database(plan: dict):
-    """Update the local event_planning.json database with overall event details."""
-    try:
-        existing = {}
-        if os.path.exists(EVENT_PLANNING_FILE):
-            try:
-                with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
-                    existing = json.load(f)
-            except: pass
-            
-        new_name = plan.get('event_name')
-        existing_name = existing.get('event_name')
-        
-        # Merge the new plan into existing data
-        existing.update(plan)
-        
-        # Ensure event_name is not lost if the agent didn't provide it
-        if not new_name and existing_name:
-            existing['event_name'] = existing_name
-            
-        with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f:
-            json.dump(existing, f, indent=4)
-        return "Local event planning database updated."
-    except Exception as e: return f"Error: {e}"
-
-def get_event_planning_database():
-    """Retrieve the current overall event planning details from the database. Use this tool when you need to read or show the current event plan."""
-    if not os.path.exists(EVENT_PLANNING_FILE): return "No event planning data found."
-    try:
-        with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
-            return json.dumps(json.load(f))
-    except Exception as e: return f"Error: {e}"
-
-
-def sync_to_google_sheet(rows: list[list[str]], worksheet_name: str):
-    """Sync data directly to a Google Sheet."""
-    # Handle default value internally
-    target_sheet = worksheet_name if worksheet_name else "Live_Timeline"
-    if not SHEET_ID: return "Google Sheets Sync skipped: SPREADSHEET_ID missing."
-    gc = get_sheets_client()
-    if not gc: return "Google Sheets Sync failed: Auth error."
-    try:
-        sh = gc.open_by_key(SHEET_ID)
-        try: worksheet = sh.worksheet(target_sheet)
-        except gspread.WorksheetNotFound: worksheet = sh.add_worksheet(title=target_sheet, rows="100", cols="10")
-        worksheet.clear()
-        worksheet.update('A1', rows)
-        return f"Synced to Google Sheet '{target_sheet}'."
-    except Exception as e: return f"Error: {e}"
+# ── Agent Tools (For Chat Interface) ──────────────────────────────────────────
 
 def send_telegram_alert(message: str):
     """Send an immediate notification to the event committee via Telegram."""
-    load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
+    token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
     if not token or not chat_id: return "Telegram alert skipped: Config missing."
     try:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {"chat_id": chat_id, "text": f"⚡ AGENT ALERT:\n{message}"}
-        r = requests.post(url, json=payload, timeout=10)
-        return "Telegram alert sent successfully." if r.ok else f"Telegram error: {r.text}"
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": f"⚡ AGENT ALERT:\n{message}"}, timeout=10)
+        return "Telegram alert sent successfully."
     except Exception as e: return f"Error: {e}"
 
 def summarize_and_share_event():
-    """Generate an event summary and broadcast it's details to Telegram."""
+    """Generate an event summary and broadcast it to Telegram."""
     if not os.path.exists(EVENT_PLANNING_FILE): return "Error: No planning data."
     try:
-        with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f: p = json.load(f)
-        
-        e_date = p.get('event_date') or p.get('date') or p.get('Date') or 'TBD'
-        e_venue = p.get('event_venue') or p.get('venue') or p.get('Venue') or p.get('Location') or 'TBD'
-        e_summary = p.get('event_summary') or p.get('summary') or p.get('description') or p.get('Description') or 'No summary recorded.'
-        
+        with open(EVENT_PLANNING_FILE, 'r') as f: p = json.load(f)
         msg = (f"📢 **EVENT SUMMARY: {p.get('event_name', 'Event').upper()}**\n\n"
-               f"📅 **Date:** {e_date}\n"
-               f"📍 **Venue:** {e_venue}\n\n"
-               f"📝 **Overview:**\n{e_summary}")
+               f"📝 **Overview:**\n{p.get('event_summary', '')}\n\n"
+               f"🔍 **Sub-Events Detected:** {len(p.get('sub_events', []))}")
         return send_telegram_alert(msg)
     except Exception as e: return f"Error: {e}"
 
-AGENT_TOOLS = [
-    update_timeline_database, update_event_planning_database, get_event_planning_database,
-    sync_to_google_sheet, send_telegram_alert,
-    summarize_and_share_event
-]
+AGENT_TOOLS = [send_telegram_alert, summarize_and_share_event]
 
-def execute_gemini_task(task_fn, *args, **kwargs):
-    """
-    Executes a Gemini task with automatic fallback through the model list.
-    Automatically disables auto function calling and manually executes the tools.
-    """
-    model_chain = [MODEL] + FALLBACK_MODELS
-    last_error = None
-    
-    for m_id in model_chain:
-        try:
-            print(f"DEBUG: Attempting task with model: {m_id}")
-            if 'model' in kwargs: 
-                kwargs['model'] = m_id
-            
-            cache_name = get_valid_cache(m_id)
-            if 'config' in kwargs and hasattr(kwargs['config'], 'automatic_function_calling'):
-                kwargs['config'].automatic_function_calling = types.AutomaticFunctionCallingConfig(disable=True)
-            elif 'config' in kwargs:
-                kwargs['config'].automatic_function_calling = types.AutomaticFunctionCallingConfig(disable=True)
-            
-            if cache_name:
-                print(f"DEBUG: Using cache {cache_name} for model {m_id}")
-                if 'config' in kwargs:
-                    kwargs['config'].cached_content = cache_name
-                    kwargs['config'].system_instruction = None
-                    # Do NOT set tools to None here; they are needed for the model to act on the cache
-                else:
-                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name, tools=AGENT_TOOLS, automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
-            
-            resp = task_fn(*args, **kwargs)
-            
-            try:
-                resp_text = resp.text or ""
-            except ValueError:
-                resp_text = ""
-                
-            if resp.function_calls:
-                tool_responses = []
-                for call in resp.function_calls:
-                    for tool in AGENT_TOOLS:
-                        if tool.__name__ == call.name:
-                            try:
-                                res = tool(**call.args)
-                                resp_text += f"\n[Executed {call.name}]"
-                            except Exception as e:
-                                res = str(e)
-                                resp_text += f"\n[Failed {call.name}: {e}]"
-                            tool_responses.append(
-                                types.Part(function_response=types.FunctionResponse(
-                                    name=call.name, response={"result": res}
-                                ))
-                            )
-                if tool_responses:
-                    resp_text += "\n"
-            
-            class DummyResp:
-                def __init__(self, t): self.text = t
-            return DummyResp(resp_text.strip() or "Sync completed.")
-            
-        except Exception as e:
-            last_error = e
-            error_msg = str(e)
-            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                print(f"WARNING: Model {m_id} hit quota limit. Falling back...")
-                continue
-            print(f"ERROR: Model {m_id} failed with: {error_msg}")
-            continue
-            
-    raise last_error if last_error else Exception("All models in fallback chain failed.")
-
-# ── Persistence Helpers ──────────────────────────────────────────────────────
-
-def load_chat_history():
-    """Load chat history and reconstruct full Part objects (text only).
-    
-    IMPORTANT: Model turns containing function_call parts are intentionally skipped.
-    Replaying function_call parts to a thinking model requires a valid thought_signature
-    (bytes generated by the model at call time). Without it, the API returns a 400
-    INVALID_ARGUMENT error. We therefore only replay plain text turns, which is safe
-    and still provides conversational context.
-    """
-    if not os.path.exists(CHAT_HISTORY_FILE): return []
-    try:
-        with open(CHAT_HISTORY_FILE, 'r', encoding='utf-8') as f:
-            raw = json.load(f)
-            history = []
-            for item in raw[-30:]:
-                role = item.get('role')
-                raw_parts = item.get('parts', [])
-
-                # Skip any model turn that contains function_call parts.
-                # These cannot be replayed without a matching thought_signature.
-                has_function_call = any('function_call' in p for p in raw_parts)
-                has_function_response = any('function_response' in p for p in raw_parts)
-                if has_function_call or has_function_response:
-                    continue
-
-                parts = []
-                for p in raw_parts:
-                    if 'text' in p:
-                        parts.append(types.Part(text=p['text']))
-                    # Thought parts are skipped as they are internal model reasoning.
-
-                if parts:
-                    history.append(types.Content(role=role, parts=parts))
-            return history
-    except Exception as e:
-        print(f"History load error: {e}")
-        return []
-
-def save_chat_history(session):
-    """Save the entire conversation history including thoughts and tool interactions."""
-    try:
-        history = session.get_history()
-        serializable = []
-        for content in history:
-            if content.role not in ["user", "model"]: continue
-            parts = []
-            for part in content.parts:
-                p_dict = {}
-                # Extract known parts safely
-                if part.text: p_dict['text'] = part.text
-                if part.thought: p_dict['thought'] = part.thought
-                if part.function_call:
-                    p_dict['function_call'] = {
-                        "name": part.function_call.name,
-                        "args": part.function_call.args
-                    }
-                    if hasattr(part.function_call, 'thought_signature') and part.function_call.thought_signature:
-                        # Base64-encode bytes so they survive JSON serialization
-                        p_dict['function_call']['thought_signature'] = base64.b64encode(part.function_call.thought_signature).decode('ascii')
-                if part.function_response:
-                    p_dict['function_response'] = {
-                        "name": part.function_response.name,
-                        "response": part.function_response.response
-                    }
-                if p_dict: parts.append(p_dict)
-            if parts:
-                serializable.append({"role": content.role, "parts": parts})
-        
-        with open(CHAT_HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(serializable, f, indent=4)
-    except Exception as e:
-        print(f"History save error: {e}")
+# ── Core Routes ───────────────────────────────────────────────────────────────
 
 @app.route('/api/generate', methods=['POST'])
 def generate_knowledge():
+    """Extracts data using the Detective Prompt and Nested Hierarchy."""
     files = request.files.getlist('files')
     if not files: return jsonify({"error": "No files"}), 400
     temp_paths, gemini_files, texts = [], [], []
+    
     try:
-        # Removed Telegram log analysis to save API quota as requested.
-        # logs = open(CHAT_LOGS_FILE, 'r', encoding='utf-8').read() if os.path.exists(CHAT_LOGS_FILE) else ""
         for f in files:
             ext = os.path.splitext(f.filename)[1].lower()
-            mime = ALLOWED_EXTENSIONS.get(ext)
-            if not mime: continue
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
                 f.save(tmp.name)
-                path = tmp.name
-            temp_paths.append(path)
-            if ext in EXCEL_EXTENSIONS:
+                temp_paths.append(tmp.name)
+            
+            # Explicitly label every single file for the AI
+            file_header = f"\n\n{'='*40}\nSTART OF FILE: {f.filename}\n{'='*40}\n"
+            
+            if ext in {'.pdf', '.mp4', '.mp3', '.wav'}: 
+                # Upload media directly to Gemini
+                uploaded_file = client.files.upload(path=tmp.name, display_name=f.filename)
+                gemini_files.append(uploaded_file)
+            elif ext in {'.txt', '.csv', '.md'}: 
+                texts.append(file_header + open(tmp.name, 'r', errors='ignore').read())
+            elif ext in {'.docx', '.doc'}:
                 try:
-                    df_m = pd.read_excel(path, sheet_name=None) if ext != '.csv' else {'S1': pd.read_csv(path)}
-                    texts.append(f"File: {f.filename}\n" + "\n".join([f"Sheet {k}:\n{v.to_csv()}" for k, v in df_m.items()]))
+                    doc_text = "\n".join([p.text for p in DocxDocument(tmp.name).paragraphs])
+                    texts.append(file_header + doc_text)
                 except: pass
-            elif ext in DOCX_EXTENSIONS:
-                try: texts.append(f"File: {f.filename}\n" + "\n".join([p.text for p in DocxDocument(path).paragraphs]))
-                except: pass
-            elif mime in GEMINI_UPLOADABLE_MIME:
-                gemini_files.append(client.files.upload(path=path, config=types.UploadFileConfig(mime_type=mime)))
-            else:
-                try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
+            elif ext in {'.xlsx', '.xls'}:
+                try:
+                    df_m = pd.read_excel(tmp.name, sheet_name=None)
+                    excel_text = "\n".join([f"Sheet {k}:\n{v.to_csv()}" for k, v in df_m.items()])
+                    texts.append(file_header + excel_text)
                 except: pass
 
-            instr = (
-            "You are a Master Event Architect and Lead Data Synthesizer. "
-            "Your objective is to digest all fragmented documents and construct a UNIFIED, holistic event knowledge database. "
-            "Do NOT hyper-focus on isolated sub-events or single departments. You must see the big picture. "
-            "Execute your analysis in these two strict phases: \n\n"
-            "PHASE 1: THE MACRO-EVENT (The Big Picture)\n"
-            "First, identify the overarching main event. Extract the primary event name, global dates, main venue, and core objective. "
-            "Call 'update_event_planning_database' to store this. CRITICAL: You MUST include an 'event_summary' key that provides a top-down, comprehensive overview of the entire main event.\n\n"
-            "PHASE 2: THE MICRO-EVENTS (Timeline & Departments)\n"
-            "Next, extract all specific tasks, sub-events, and departmental roles. Consolidate overlapping tasks from different files to avoid duplication. "
-            "Call 'update_timeline_database' to log these chronologically. Ensure every task makes sense in the context of the Phase 1 Macro-Event.\n\n"
-            f"--- UPLOADED DOCUMENTS ---\n{' '.join(texts)}"
-            )           
-        # Create a cache for the main model
-        # We use a 1 hour TTL by default.
-        print(f"DEBUG: Creating new context cache for {MODEL}...")
-        try:
-            # Aggregate all content for the cache
-            cache_contents = []
-            for gf in gemini_files:
-                cache_contents.append(types.Part(file_data=types.FileData(mime_type=gf.mime_type, file_uri=gf.uri)))
-            if texts:
-                cache_contents.append(types.Part(text="\n\n".join(texts)))
-            
-            # Create the cache
-            # Note: tools and instruction MUST be in the cache creation if we want to use them with the cache
-            cache = client.caches.create(
-                model=MODEL,
-                config=types.CreateCachedContentConfig(
-                    display_name="Project Memory Cache",
-                    system_instruction=instr,
-                    contents=cache_contents,
-                    ttl="3600s", # 1 hour
-                    # Note: tools are NOT frozen into cache; they are passed in generate_content calls.
-                )
-            )
-            
-            # Register tools separately in the generation call if not supported in cache config 
-            # (Wait, actually the GenAI SDK config for caches might not take tools directly in some versions, 
-            # but let's assume it supports them or we pass them in generate_content).
-            # Update: Some SDK versions require tools in the cache. 
-            # Let's try to put them in the generate call first and if it fails, we'll know.
-            
-            # Save metadata
-            metadata = get_cache_metadata()
-            metadata[MODEL] = {
-                "name": cache.name,
-                "expiry": (datetime.datetime.now() + datetime.timedelta(hours=1)).isoformat()
-            }
-            save_cache_metadata(metadata)
-            print(f"DEBUG: Cache created: {cache.name}")
-            
-            # Initial call to verify and act
-            response = execute_gemini_task(
-                client.models.generate_content,
-                model=MODEL,
-                contents="Process these documents and update the databases accordingly.", 
-                config=types.GenerateContentConfig(tools=AGENT_TOOLS)
-            )
-        except Exception as e:
-            print(f"CACHE CREATION ERROR: {e}")
-            # Fallback to standard non-cached generation if cache fails
-            # We must include the actual content (texts + files) in the fallback message
-            fallback_contents = [instr] # Standard instruction
-            for gf in gemini_files:
-                fallback_contents.append(types.Part(file_data=types.FileData(mime_type=gf.mime_type, file_uri=gf.uri)))
-            if texts:
-                fallback_contents.append(types.Part(text="\n\n".join(texts)))
-            fallback_contents.append(types.Part(text="Read all uploaded documents. First, update the event planning database with the overall Big Event details and summary. Then, update the timeline database with all consolidated tasks."))
-
-            response = execute_gemini_task(
-                client.models.generate_content,
-                model=MODEL,
-                contents=fallback_contents, 
-                config=types.GenerateContentConfig(tools=AGENT_TOOLS)
-            )
+        instruction = (
+            "You are a Master Event Architect. The user has uploaded a chaotic batch of unstructured files. "
+            "Your job is to act as a detective and re-organize this data into a structured hierarchy.\n\n"
+            "INSTRUCTIONS:\n"
+            "1. MACRO EVENT: Look at all files to figure out the overarching mega-event.\n"
+            "2. SUB-EVENTS: Identify distinct activities or programs (e.g., 'Colour Run', 'DIY Art Making'). "
+            "Create a SubEvent object for each.\n"
+            "3. CROSS-REFERENCING: Group information logically. If you see an attendance CSV with names, and a Word Doc about a 'Station Game', "
+            "and they share context, link them together in the same SubEvent using the 'associated_files' array.\n"
+            "4. TASKS: Place every task, flow, or logistical requirement under its correct SubEvent.\n\n"
+            "CRITICAL: Pay close attention to the 'START OF FILE:' headers to know where information came from."
+        )
         
-        # BUG 5 FIX: Write processed file names to the persistent file index
-        file_index = []
-        if os.path.exists(FILE_INDEX_FILE):
-            try:
-                with open(FILE_INDEX_FILE, 'r', encoding='utf-8') as fi: file_index = json.load(fi)
-            except: pass
-        for uf in files:
-            uf_ext = os.path.splitext(uf.filename)[1].lower()
-            if ALLOWED_EXTENSIONS.get(uf_ext):
-                file_index.append({"original_name": uf.filename, "timestamp": datetime.datetime.now().isoformat()})
-        with open(FILE_INDEX_FILE, 'w', encoding='utf-8') as fi: json.dump(file_index, fi, indent=4)
-        return jsonify({"message": "Sync complete", "response": response.text}), 200
-    except Exception as e: return jsonify({"error": str(e)}), 500
+        contents = [instruction] + gemini_files + [types.Part(text="\n\n".join(texts))]
+
+        print("DEBUG: Requesting structured extraction from Gemini...")
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=EventExtractionSchema,
+                temperature=0.2 
+            )
+        )
+        
+        extracted_data = json.loads(response.text)
+        
+        # 1. Save Holistic Event Data
+        with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f:
+            json.dump(extracted_data, f, indent=4)
+            
+        # 2. Extract a Flat Task List (For Backward Compatibility with the /reminders endpoint)
+        flat_tasks = []
+        for sub_event in extracted_data.get("sub_events", []):
+            for task in sub_event.get("tasks", []):
+                flat_tasks.append({
+                    "SubEvent": sub_event.get("sub_event_name"),
+                    "Task": task.get("task_name"),
+                    "Status": task.get("status"),
+                    "Time": task.get("time")
+                })
+        with open(TIMELINE_TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(flat_tasks, f, indent=4)
+
+        # 3. Save to File Index
+        file_index = json.load(open(FILE_INDEX_FILE, 'r')) if os.path.exists(FILE_INDEX_FILE) else []
+        for uf in files: file_index.append({"original_name": uf.filename, "timestamp": datetime.datetime.now().isoformat()})
+        with open(FILE_INDEX_FILE, 'w') as fi: json.dump(file_index, fi, indent=4)
+
+        return jsonify({"message": "Knowledge Database unified.", "data": extracted_data}), 200
+
+    except Exception as e: 
+        print(f"GENERATION CRASH: {e}")
+        return jsonify({"error": str(e)}), 500
     finally:
         for p in temp_paths: 
             if os.path.exists(p): os.remove(p)
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
+    """A clean chat endpoint that allows the AI to converse based on the new nested data."""
     msg = request.get_json().get('message')
     if not msg: return jsonify({"error": "No message"}), 400
+    
     try:
-        history = load_chat_history()
-        model_chain = [MODEL] + FALLBACK_MODELS
-        last_error = None
+        history = []
+        if os.path.exists(CHAT_HISTORY_FILE):
+            raw = json.load(open(CHAT_HISTORY_FILE, 'r'))
+            for item in raw[-20:]:
+                history.append(types.Content(role=item['role'], parts=[types.Part(text=p['text']) for p in item['parts'] if 'text' in p]))
 
-        for m_id in model_chain:
-            try:
-                print(f"DEBUG: Chat attempt with model: {m_id}")
-                cache_name = get_valid_cache(m_id)
-                config = types.GenerateContentConfig(
-                    tools=AGENT_TOOLS,
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
-                )
-                if cache_name:
-                    config.cached_content = cache_name
+        # Provide the full nested JSON to the chat context so the AI knows exactly how the event is structured
+        event_db = json.load(open(EVENT_PLANNING_FILE)) if os.path.exists(EVENT_PLANNING_FILE) else {}
+        current_context = f"\n[SYSTEM MEMORY: Current Event Database:\n{json.dumps(event_db, indent=2)}]"
+        
+        sess = client.chats.create(
+            model=MODEL, 
+            history=history,
+            config=types.GenerateContentConfig(tools=AGENT_TOOLS)
+        )
+        
+        response = sess.send_message(msg + current_context)
+        resp_text = response.text or ""
+        
+        history_to_save = json.load(open(CHAT_HISTORY_FILE, 'r')) if os.path.exists(CHAT_HISTORY_FILE) else []
+        history_to_save.append({"role": "user", "parts": [{"text": msg}]})
+        history_to_save.append({"role": "model", "parts": [{"text": resp_text or "Action completed."}]})
+        with open(CHAT_HISTORY_FILE, 'w') as f: json.dump(history_to_save, f, indent=4)
 
-                sess = client.chats.create(model=m_id, history=history, config=config)
-                resp = sess.send_message(msg)
-                
-                # Safely get text which might fail if it's only function calls
-                try:
-                    resp_text = resp.text or ""
-                except ValueError:
-                    resp_text = ""
-                
-                # Manually execute tools and send response back to the model
-                if resp.function_calls:
-                    tool_responses = []
-                    for call in resp.function_calls:
-                        for tool in AGENT_TOOLS:
-                            if tool.__name__ == call.name:
-                                try:
-                                    res = tool(**call.args)
-                                except Exception as e:
-                                    res = f"Error: {e}"
-                                tool_responses.append(
-                                    types.Part(function_response=types.FunctionResponse(
-                                        name=call.name, response={"result": res}
-                                    ))
-                                )
-                    
-                    if tool_responses:
-                        # Send responses back to allow the model to summarize it
-                        resp2 = sess.send_message(tool_responses)
-                        try:
-                            if resp2.text:
-                                resp_text += ("\n\n" + resp2.text).strip()
-                        except ValueError:
-                            pass
+        return jsonify({"response": resp_text.strip() or "Action completed."}), 200
 
-                if not resp_text.strip():
-                    resp_text = "Action completed."
-
-                save_chat_history(sess)
-                return jsonify({"response": resp_text.strip()}), 200
-            except Exception as e:
-                last_error = e
-                error_msg = str(e)
-                print(f"ERROR: Chat model {m_id} failed: {error_msg}")
-                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    continue  # quota — try next model
-                # For thought_signature or other errors, also try next model
-                continue
-
-        raise last_error if last_error else Exception("All chat models failed.")
     except Exception as e: 
-        print(f"CHAT CRASH: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/history', methods=['GET'])
-def get_history():
-    if not os.path.exists(CHAT_HISTORY_FILE): return jsonify([]), 200
-    return jsonify(json.load(open(CHAT_HISTORY_FILE, 'r'))), 200
-
-@app.route('/api/knowledge', methods=['GET'])
-def get_knowledge():
-    t, p = [], {}
-    if os.path.exists(TIMELINE_TASKS_FILE): t = json.load(open(TIMELINE_TASKS_FILE, 'r'))
-    if os.path.exists(EVENT_PLANNING_FILE): p = json.load(open(EVENT_PLANNING_FILE, 'r'))
-    return jsonify({"timeline_tasks": t, "event_planning": p}), 200
-
-@app.route('/api/files', methods=['GET'])
-def get_files():
-    if not os.path.exists(FILE_INDEX_FILE): return jsonify([]), 200
-    return jsonify(json.load(open(FILE_INDEX_FILE, 'r'))), 200
-
-@app.route('/api/settings/event', methods=['POST'])
-def manage_event_name():
-    data = request.get_json()
-    name = data.get('event_name') if data else ""
-    if not name: return jsonify({"error": "Event name required"}), 400
-    planning = {}
-    if os.path.exists(EVENT_PLANNING_FILE):
-        try:
-            with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f: planning = json.load(f)
-        except: pass
-    planning['event_name'] = name
-    try:
-        with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f: json.dump(planning, f, indent=4)
-        return jsonify({"message": "Event name updated"}), 200
-    except Exception as e: return jsonify({"error": str(e)}), 500
-
-@app.route('/api/settings/calendar', methods=['GET', 'POST'])
-def manage_calendar_id():
-    if request.method == 'POST':
-        data = request.get_json()
-        cid = data.get('calendar_id') if data else ""
-        env_path = os.path.join(BASE_DIR, '.env')
-        lines = open(env_path, 'r').readlines() if os.path.exists(env_path) else []
-        with open(env_path, 'w') as f:
-            found = False
-            for l in lines:
-                if l.startswith("GOOGLE_CALENDAR_ID="): f.write(f"GOOGLE_CALENDAR_ID={cid}\n"); found = True
-                else: f.write(l)
-            if not found: f.write(f"GOOGLE_CALENDAR_ID={cid}\n")
-        os.environ["GOOGLE_CALENDAR_ID"] = cid
-        return jsonify({"message": "Calendar ID updated"}), 200
-    return jsonify({"calendar_id": os.environ.get("GOOGLE_CALENDAR_ID", "")}), 200
-
-@app.route('/api/actions/summarize', methods=['GET'])
-def api_summarize(): return jsonify({"message": summarize_and_share_event()})
+# ── API Utility Routes ────────────────────────────────────────────────────────
 
 @app.route('/api/actions/reminders', methods=['GET'])
 def api_reminders():
@@ -606,19 +221,18 @@ def api_reminders():
     
     formatted_tasks = []
     for t in tasks:
-        t_name = t.get('name') or t.get('title') or t.get('Task', 'Unnamed')
-        t_status = t.get('status') or t.get('Status') or 'Pending'
-        t_time = t.get('time') or t.get('Time') or ''
-        
-        task_str = f"• {t_name} ({t_status})"
-        if t_time:
-            task_str += f" - {t_time}"
+        task_str = f"[{t.get('SubEvent', 'General')}] • {t.get('Task', 'Unnamed')} ({t.get('Status', 'Pending')}) - {t.get('Time', '')}"
         formatted_tasks.append(task_str)
         
     msg = "📅 **FULL TASK LIST**\n" + "\n".join(formatted_tasks)
-    return jsonify({"message": send_telegram_alert(msg)})
+    send_telegram_alert(msg)
+    return jsonify({"message": "Reminders sent!"})
 
-# Calendar sync route removed as requested.
+@app.route('/api/knowledge', methods=['GET'])
+def get_knowledge():
+    t = json.load(open(TIMELINE_TASKS_FILE, 'r')) if os.path.exists(TIMELINE_TASKS_FILE) else []
+    p = json.load(open(EVENT_PLANNING_FILE, 'r')) if os.path.exists(EVENT_PLANNING_FILE) else {}
+    return jsonify({"timeline_tasks": t, "event_planning": p}), 200
 
 @app.route('/api/chat/clear', methods=['POST'])
 def clear_history():
@@ -627,25 +241,9 @@ def clear_history():
 
 @app.route('/api/knowledge/clear', methods=['POST'])
 def api_clear_knowledge():
-    for f in [TIMELINE_TASKS_FILE, EVENT_PLANNING_FILE]:
-        if os.path.exists(f):
-            with open(f, 'w', encoding='utf-8') as file:
-                json.dump([] if f == TIMELINE_TASKS_FILE else {}, file)
-    return jsonify({"message": "Knowledge database reset"}), 200
-
-@app.route('/api/files/clear', methods=['POST'])
-def api_clear_files():
-    if os.path.exists(CHAT_LOGS_FILE): open(CHAT_LOGS_FILE, 'w').close()
-    if os.path.exists(FILE_INDEX_FILE):
-        with open(FILE_INDEX_FILE, 'w', encoding='utf-8') as f: json.dump([], f)
-    return jsonify({"message": "File history and logs cleared"}), 200
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path != "" and os.path.exists(app.static_folder + '/' + path):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    for f, default in [(TIMELINE_TASKS_FILE, []), (EVENT_PLANNING_FILE, {})]:
+        if os.path.exists(f): json.dump(default, open(f, 'w'))
+    return jsonify({"message": "Databases reset"}), 200
 
 if __name__ == '__main__':
     from waitress import serve as ws
