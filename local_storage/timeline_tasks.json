@@ -1,37 +1,38 @@
 [
     {
-        "time": "1:00 PM - 2:15 PM",
-        "name": "Setup",
-        "date": "Friday, 7th November 2025"
+        "task_name": "Audience Age-Group Research",
+        "deadline": "1 week before event",
+        "description": "Conduct research on target audience age group and adjust activity complexity.",
+        "status": "Pending"
     },
     {
-        "date": "Friday, 7th November 2025",
-        "name": "Participant Registration",
-        "time": "2:00 PM - 2:15 PM"
+        "task_name": "Visual Aid Preparation",
+        "description": "Develop PPT slides or video tutorials for workshop instructions (DIY Art).",
+        "status": "Pending",
+        "deadline": "3 days before event"
     },
     {
-        "time": "2:15 PM - 2:30 PM",
-        "date": "Friday, 7th November 2025",
-        "name": "Briefing"
+        "status": "Pending",
+        "description": "Confirm all facility requirements (fridge access, power outlets) and secure venue keys.",
+        "deadline": "2 days before event",
+        "task_name": "Facility & Key Verification"
     },
     {
-        "date": "Friday, 7th November 2025",
-        "name": "Station Games",
-        "time": "2:30 PM - 3:40 PM"
+        "status": "Pending",
+        "description": "Conduct dry run for station games without conflicting with other major commitments.",
+        "deadline": "1 day before event",
+        "task_name": "Scheduled Dry Run"
     },
     {
-        "time": "3:40 PM - 4:00 PM",
-        "date": "Friday, 7th November 2025",
-        "name": "Awarding Ceremony"
+        "task_name": "Route Safety Deployment",
+        "description": "Deploy marshals at all intersections and coordinate with Polis Bantuan.",
+        "status": "Pending",
+        "deadline": "Event Morning"
     },
     {
-        "time": "4:00 PM - 4:30 PM",
-        "name": "Cleaning & The Box of Sunshine Legacy Project",
-        "date": "Friday, 7th November 2025"
-    },
-    {
-        "time": "Thursday, 6th November 2025",
-        "date": "Thursday, 6th November 2025",
-        "name": "Dry Run"
+        "deadline": "Post-Registration",
+        "status": "Pending",
+        "description": "Finalize budget and order stocks based on early registration numbers.",
+        "task_name": "Budget & Inventory Finalization"
     }
 ]

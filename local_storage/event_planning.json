@@ -109,5 +109,50 @@
             "PA PIC": "Lim Xuan Ning",
             "Activity": "Plant sunflower seeds in personalized cups. Post on Instagram for mystery prize."
         }
-    ]
+    ],
+    "event_name": "Post-Mortem Action Plan: Event Series Improvement",
+    "contingency_plan": {
+        "heavy_rain": {
+            "prepared_activities": "Indoor games",
+            "actions": "Guide participants to shelter zones: KK12, Faculty of Engineering, or KK1."
+        }
+    },
+    "schedule": {
+        "end_cleaning": "10:00 AM",
+        "warm_up_briefing": "7:30 AM - 7:50 AM",
+        "post_run_finale": "9:40 AM - 10:00 AM",
+        "registration": "7:00 AM - 7:30 AM",
+        "the_run": "7:50 AM - 9:40 AM"
+    },
+    "date": "2025-11-09",
+    "target_audience": 100,
+    "route": {
+        "leg_3": {
+            "station": {
+                "activities": "finish line",
+                "name": "Pose for a Cause"
+            },
+            "description": "KK12 to Padang Woodball"
+        },
+        "leg_1": {
+            "station": {
+                "activities": "green beans & chopsticks",
+                "name": "The Path of Focus"
+            },
+            "description": "FSKTM to Bukit Cinta"
+        },
+        "leg_2": {
+            "station": {
+                "activities": "ping pong balls & spoons",
+                "name": "The Spoon Challenge"
+            },
+            "description": "Bukit Cinta to KK12"
+        },
+        "start": "FSKTM (Block B)"
+    },
+    "distance": "4.53 km",
+    "logistics_standardization": "1. Secure all venue keys 24 hours prior. 2. Prepare 'Cleanup Kits' (table covers, rags, alcohol) for art sessions. 3. Ensure heavy transport (lorry/multiple cars) is booked for equipment-heavy events.",
+    "program_guidelines": "1. Activities must be age-appropriate (7-12 vs university students). 2. Minimize luck-based games; prioritize skill or engagement. 3. Mandatory visual aids (PPT/Video) for all workshops.",
+    "procurement_policy": "1. Open registrations 4 weeks early to finalize budget for materials (T-shirts, color powder). 2. Conduct quality checks on all materials (e.g., flower pots, chocolate) before event day.",
+    "department_restructuring": "Merge 'Safety Department' into 'Logistics' or 'Program & Activity' to optimize manpower for setup and cleanup duties."
 }

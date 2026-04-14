@@ -177,10 +177,15 @@ def summarize_and_share_event():
     if not os.path.exists(EVENT_PLANNING_FILE): return "Error: No planning data."
     try:
         with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f: p = json.load(f)
+        
+        e_date = p.get('event_date') or p.get('date') or p.get('Date') or 'TBD'
+        e_venue = p.get('event_venue') or p.get('venue') or p.get('Venue') or p.get('Location') or 'TBD'
+        e_summary = p.get('event_summary') or p.get('summary') or p.get('target_audience', 'No summary recorded.')
+        
         msg = (f"📢 **EVENT SUMMARY: {p.get('event_name', 'Event').upper()}**\n\n"
-               f"📅 **Date:** {p.get('event_date', 'TBD')}\n"
-               f"📍 **Venue:** {p.get('event_venue', 'TBD')}\n\n"
-               f"📝 **Overview:**\n{p.get('event_summary', 'No summary.')}")
+               f"📅 **Date:** {e_date}\n"
+               f"📍 **Venue:** {e_venue}\n\n"
+               f"📝 **Overview:**\n{e_summary}")
         return send_telegram_alert(msg)
     except Exception as e: return f"Error: {e}"
 
@@ -193,6 +198,7 @@ AGENT_TOOLS = [
 def execute_gemini_task(task_fn, *args, **kwargs):
     """
     Executes a Gemini task with automatic fallback through the model list.
+    Automatically disables auto function calling and manually executes the tools.
     """
     model_chain = [MODEL] + FALLBACK_MODELS
     last_error = None
@@ -200,35 +206,53 @@ def execute_gemini_task(task_fn, *args, **kwargs):
     for m_id in model_chain:
         try:
             print(f"DEBUG: Attempting task with model: {m_id}")
-            # Inject the model ID and cache if available
             if 'model' in kwargs: 
                 kwargs['model'] = m_id
             
-            # Check for existing cache for this specific model
             cache_name = get_valid_cache(m_id)
+            if 'config' in kwargs and hasattr(kwargs['config'], 'automatic_function_calling'):
+                kwargs['config'].automatic_function_calling = types.AutomaticFunctionCallingConfig(disable=True)
+            elif 'config' in kwargs:
+                kwargs['config'].automatic_function_calling = types.AutomaticFunctionCallingConfig(disable=True)
+            
             if cache_name:
                 print(f"DEBUG: Using cache {cache_name} for model {m_id}")
                 if 'config' in kwargs:
-                    # When using cached_content, we must NOT override system_instruction or tools
-                    # which were already frozen into the cache.
                     kwargs['config'].cached_content = cache_name
                     kwargs['config'].system_instruction = None
                     kwargs['config'].tools = None
                 else:
-                    # In case config isn't passed, we'll need it anyway for cached_content
-                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name)
+                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name, automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
             
-            return task_fn(*args, **kwargs)
+            resp = task_fn(*args, **kwargs)
+            
+            try:
+                resp_text = resp.text or ""
+            except ValueError:
+                resp_text = ""
+                
+            if resp.function_calls:
+                for call in resp.function_calls:
+                    for tool in AGENT_TOOLS:
+                        if tool.__name__ == call.name:
+                            try:
+                                res = tool(**call.args)
+                                resp_text += f"\n[Executed {call.name}: {res}]"
+                            except Exception as e:
+                                resp_text += f"\n[Failed to execute {call.name}: {e}]"
+                                
+            # We return a dummy object with text property so the caller code (e.g. `response.text`) keeps working
+            class DummyResp:
+                def __init__(self, t): self.text = t
+            return DummyResp(resp_text.strip() or "Sync completed.")
+            
         except Exception as e:
             last_error = e
             error_msg = str(e)
             if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                 print(f"WARNING: Model {m_id} hit quota limit. Falling back...")
                 continue
-            # If it's not a quota error, we might still want to try fallback for safety,
-            # but usually, we only fallback on 429.
             print(f"ERROR: Model {m_id} failed with: {error_msg}")
-            # Try next model anyway if possible
             continue
             
     raise last_error if last_error else Exception("All models in fallback chain failed.")
@@ -426,14 +450,38 @@ def chat():
             try:
                 print(f"DEBUG: Chat attempt with model: {m_id}")
                 cache_name = get_valid_cache(m_id)
-                config = types.GenerateContentConfig(tools=AGENT_TOOLS)
+                config = types.GenerateContentConfig(
+                    tools=AGENT_TOOLS,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+                )
                 if cache_name:
                     config.cached_content = cache_name
 
                 sess = client.chats.create(model=m_id, history=history, config=config)
                 resp = sess.send_message(msg)
+                
+                # Safely get text which might fail if it's only function calls
+                try:
+                    resp_text = resp.text or ""
+                except ValueError:
+                    resp_text = ""
+                
+                # Manually execute tools
+                if resp.function_calls:
+                    for call in resp.function_calls:
+                        for tool in AGENT_TOOLS:
+                            if tool.__name__ == call.name:
+                                try:
+                                    res = tool(**call.args)
+                                    resp_text += f"\n[Action: {call.name} executed. Result: {res}]"
+                                except Exception as e:
+                                    resp_text += f"\n[Action: {call.name} failed. Error: {e}]"
+
+                if not resp_text.strip():
+                    resp_text = "Action completed."
+
                 save_chat_history(sess)
-                return jsonify({"response": resp.text}), 200
+                return jsonify({"response": resp_text.strip()}), 200
             except Exception as e:
                 last_error = e
                 error_msg = str(e)
@@ -505,7 +553,19 @@ def api_summarize(): return jsonify({"message": summarize_and_share_event()})
 def api_reminders():
     if not os.path.exists(TIMELINE_TASKS_FILE): return jsonify({"message": "No tasks"}), 404
     tasks = json.load(open(TIMELINE_TASKS_FILE, 'r'))
-    msg = "📅 **FULL TASK LIST**\n" + "\n".join([f"• {t.get('name') or t.get('title', 'Unnamed')} ({t.get('status', 'Unknown')})" for t in tasks])
+    
+    formatted_tasks = []
+    for t in tasks:
+        t_name = t.get('name') or t.get('title') or t.get('Task', 'Unnamed')
+        t_status = t.get('status') or t.get('Status') or 'Pending'
+        t_time = t.get('time') or t.get('Time') or ''
+        
+        task_str = f"• {t_name} ({t_status})"
+        if t_time:
+            task_str += f" - {t_time}"
+        formatted_tasks.append(task_str)
+        
+    msg = "📅 **FULL TASK LIST**\n" + "\n".join(formatted_tasks)
     return jsonify({"message": send_telegram_alert(msg)})
 
 # Calendar sync route removed as requested.
