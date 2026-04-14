@@ -1,37 +1,20 @@
 [
     {
-        "participants": 100,
-        "due_date": "2025-11-09",
-        "task": "Color Run Registration"
+        "end_date": "2025-11-07",
+        "name": "Wall of Thoughts",
+        "description": "Students share thoughts, messages, or feelings through sticky notes on a board to express emotions.",
+        "start_date": "2025-11-03"
     },
     {
-        "participants": 100,
-        "due_date": "2025-11-09",
-        "task": "Color Run Station 1"
+        "name": "DIY Art Making"
     },
     {
-        "task": "Color Run Station 2",
-        "participants": 100,
-        "due_date": "2025-11-09"
+        "name": "Station Games"
     },
     {
-        "task": "Color Run Station 3",
-        "participants": 100,
-        "due_date": "2025-11-09"
+        "name": "Colour Run"
     },
     {
-        "participants": 30,
-        "due_date": "2025-11-04",
-        "task": "DIY Art Making Workshop"
-    },
-    {
-        "participants": 50,
-        "due_date": "2025-11-07",
-        "task": "PEKOM Station Games"
-    },
-    {
-        "task": "Wall of Thoughts",
-        "participants": null,
-        "due_date": "2025-11-07"
+        "name": "Share Your Love"
     }
 ]

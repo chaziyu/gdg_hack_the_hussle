@@ -7,7 +7,6 @@ from docx import Document as DocxDocument
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from google.oauth2.service_account import Credentials
-from google_calendar_utils import add_tasks_to_google_calendar
 from telegram import Bot
 from google import genai
 from google.genai import types
@@ -134,7 +133,7 @@ def summarize_and_share_event():
 AGENT_TOOLS = [
     update_timeline_database, update_event_planning_database,
     sync_to_google_sheet, send_telegram_alert,
-    add_tasks_to_google_calendar, summarize_and_share_event
+    summarize_and_share_event
 ]
 
 def execute_gemini_task(task_fn, *args, **kwargs):
@@ -168,19 +167,67 @@ def execute_gemini_task(task_fn, *args, **kwargs):
 # ── Persistence Helpers ──────────────────────────────────────────────────────
 
 def load_chat_history():
+    """Load chat history and reconstruct full Part objects (text, thought, function calls)."""
     if not os.path.exists(CHAT_HISTORY_FILE): return []
     try:
         with open(CHAT_HISTORY_FILE, 'r', encoding='utf-8') as f:
             raw = json.load(f)
-            return [types.Content(role=h['role'], parts=[types.Part(text=h['text'])]) for h in raw[-20:]]
-    except: return []
+            history = []
+            for item in raw[-30:]: # Store more context if available
+                parts = []
+                for p in item.get('parts', []):
+                    if 'text' in p: parts.append(types.Part(text=p['text']))
+                    elif 'thought' in p:
+                        # Support for reasoning models
+                        parts.append(types.Part(thought=p['thought']))
+                    elif 'function_call' in p:
+                        parts.append(types.Part(function_call=types.FunctionCall(
+                            name=p['function_call']['name'],
+                            args=p['function_call']['args']
+                        )))
+                    elif 'function_response' in p:
+                        parts.append(types.Part(function_response=types.FunctionResponse(
+                            name=p['function_response']['name'],
+                            response=p['function_response']['response']
+                        )))
+                if parts:
+                    history.append(types.Content(role=item['role'], parts=parts))
+            return history
+    except Exception as e:
+        print(f"History load error: {e}")
+        return []
 
 def save_chat_history(session):
+    """Save the entire conversation history including thoughts and tool interactions."""
     try:
         history = session.get_history()
-        serial = [{"role": c.role, "text": c.parts[0].text} for c in history if c.parts and c.role in ["user", "model"] and getattr(c.parts[0], 'text', None)]
-        with open(CHAT_HISTORY_FILE, 'w', encoding='utf-8') as f: json.dump(serial, f, indent=4)
-    except: pass
+        serializable = []
+        for content in history:
+            if content.role not in ["user", "model"]: continue
+            parts = []
+            for part in content.parts:
+                p_dict = {}
+                # Extract known parts safely
+                if part.text: p_dict['text'] = part.text
+                if part.thought: p_dict['thought'] = part.thought
+                if part.function_call:
+                    p_dict['function_call'] = {
+                        "name": part.function_call.name,
+                        "args": part.function_call.args
+                    }
+                if part.function_response:
+                    p_dict['function_response'] = {
+                        "name": part.function_response.name,
+                        "response": part.function_response.response
+                    }
+                if p_dict: parts.append(p_dict)
+            if parts:
+                serializable.append({"role": content.role, "parts": parts})
+        
+        with open(CHAT_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(serializable, f, indent=4)
+    except Exception as e:
+        print(f"History save error: {e}")
 
 @app.route('/api/generate', methods=['POST'])
 def generate_knowledge():
@@ -188,7 +235,8 @@ def generate_knowledge():
     if not files: return jsonify({"error": "No files"}), 400
     temp_paths, gemini_files, texts = [], [], []
     try:
-        logs = open(CHAT_LOGS_FILE, 'r', encoding='utf-8').read() if os.path.exists(CHAT_LOGS_FILE) else ""
+        # Removed Telegram log analysis to save API quota as requested.
+        # logs = open(CHAT_LOGS_FILE, 'r', encoding='utf-8').read() if os.path.exists(CHAT_LOGS_FILE) else ""
         for f in files:
             ext = os.path.splitext(f.filename)[1].lower()
             mime = ALLOWED_EXTENSIONS.get(ext)
@@ -209,7 +257,7 @@ def generate_knowledge():
                 try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
                 except: pass
 
-        instr = f"Analyze documents & logs. Use tools: update_timeline_database, update_event_planning_database (MANDATORY: convert dates to YYYY-MM-DD format, e.g., '2025-11-01'), sync_to_google_sheet, send_telegram_alert.\n\nLogs: {logs}\nTexts: {' '.join(texts)}"
+        instr = f"Analyze documents. Use tools: update_timeline_database, update_event_planning_database (MANDATORY: convert dates to YYYY-MM-DD format, e.g., '2025-11-01'), sync_to_google_sheet, send_telegram_alert.\n\nTexts: {' '.join(texts)}"
         
         response = execute_gemini_task(
             client.models.generate_content,
@@ -218,7 +266,7 @@ def generate_knowledge():
             config=types.GenerateContentConfig(tools=AGENT_TOOLS)
         )
         
-        open(CHAT_LOGS_FILE, 'w').close()
+        # open(CHAT_LOGS_FILE, 'w').close()
         return jsonify({"message": "Sync complete", "response": response.text}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
     finally:
@@ -306,23 +354,7 @@ def api_reminders():
     msg = "📅 **FULL TASK LIST**\n" + "\n".join([f"• {t.get('title')} ({t.get('status')})" for t in tasks])
     return jsonify({"message": send_telegram_alert(msg)})
 
-@app.route('/api/actions/calendar/sync', methods=['POST'])
-def api_sync():
-    data = request.get_json() or {}
-    calendar_email = data.get('calendar_email') or os.environ.get("GOOGLE_CALENDAR_ID")
-    event_date = data.get('event_date')
-
-    # Fallback to local database if not provided in request
-    if not event_date and os.path.exists(EVENT_PLANNING_FILE):
-        try:
-            with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
-                event_date = json.load(f).get('event_date')
-        except: pass
-
-    if not event_date or not calendar_email:
-        return jsonify({"message": "Error: event_date or calendar_email missing."}), 400
-
-    return jsonify({"message": add_tasks_to_google_calendar(event_date, calendar_email)})
+# Calendar sync route removed as requested.
 
 @app.route('/api/chat/clear', methods=['POST'])
 def clear_history():

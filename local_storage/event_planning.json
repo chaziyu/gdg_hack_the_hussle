@@ -1,21 +1,6 @@
 {
-    "date": "2025-11-09",
-    "route": "https://onthegomap.com/s/nkbjd8tj",
-    "event": "Color Run",
-    "roles": {
-        "station_2": 2,
-        "registration": 1,
-        "station_3": 2,
-        "station_1": 2
-    },
-    "items": [
-        "Color powder X 100 pack",
-        "cup X 200",
-        "water X 100 (500 ml)",
-        "plastic sampah X 1 roll",
-        "medal"
-    ],
-    "logistics_members": 7,
-    "participants": 100,
-    "event_name": "Mental Health Week 2026"
+    "end_date": "2025-11-07",
+    "start_date": "2025-11-03",
+    "description": "An event featuring various activities such as DIY Art Making, Station Games, Colour Run, Wall of Thoughts, and Share Your Love. The Wall of Thoughts activity encourages students to express their feelings through sticky notes.",
+    "name": "MHW Event"
 }
