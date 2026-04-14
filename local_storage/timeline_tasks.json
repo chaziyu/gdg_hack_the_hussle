@@ -1,68 +1,37 @@
 [
     {
-        "name": "Create Google Form for registration",
-        "status": "Not started",
-        "assigned_to": "Jun Yong",
-        "due_date": "2025-11-04"
+        "time": "1:00 PM - 2:15 PM",
+        "name": "Setup",
+        "date": "Friday, 7th November 2025"
     },
     {
-        "due_date": "2025-11-04",
-        "status": "Not started",
-        "name": "Logistics: Prepare 2 kain buruk per member for table cleaning"
+        "date": "Friday, 7th November 2025",
+        "name": "Participant Registration",
+        "time": "2:00 PM - 2:15 PM"
     },
     {
-        "due_date": "2025-11-04",
-        "status": "Not started",
-        "name": "Logistics: Prepare registration counter setup"
+        "time": "2:15 PM - 2:30 PM",
+        "date": "Friday, 7th November 2025",
+        "name": "Briefing"
     },
     {
-        "name": "PICs: Prepare Epoxy Resin Keychain workshop materials and setup (BT3)",
-        "status": "Not started",
-        "due_date": "2025-11-04"
+        "date": "Friday, 7th November 2025",
+        "name": "Station Games",
+        "time": "2:30 PM - 3:40 PM"
     },
     {
-        "name": "PICs: Prepare Natural Element Framed Art workshop materials and setup (BT4)",
-        "due_date": "2025-11-04",
-        "status": "Not started"
+        "time": "3:40 PM - 4:00 PM",
+        "date": "Friday, 7th November 2025",
+        "name": "Awarding Ceremony"
     },
     {
-        "due_date": "2025-11-04",
-        "status": "Not started",
-        "name": "Coordinate with logistics for participant grouping and information dissemination"
+        "time": "4:00 PM - 4:30 PM",
+        "name": "Cleaning & The Box of Sunshine Legacy Project",
+        "date": "Friday, 7th November 2025"
     },
     {
-        "end_date": "2025-11-04 17:15:00",
-        "status": "Not started",
-        "name": "Conduct Registration and Setup",
-        "start_date": "2025-11-04 17:00:00"
-    },
-    {
-        "start_date": "2025-11-04 17:15:00",
-        "name": "Conduct Session 1",
-        "status": "Not started",
-        "end_date": "2025-11-04 18:00:00"
-    },
-    {
-        "end_date": "2025-11-04 18:45:00",
-        "status": "Not started",
-        "name": "Conduct Session 2",
-        "start_date": "2025-11-04 18:00:00"
-    },
-    {
-        "end_date": "2025-11-04 18:50:00",
-        "status": "Not started",
-        "name": "Conduct Photo Session",
-        "start_date": "2025-11-04 18:45:00"
-    },
-    {
-        "start_date": "2025-11-04 18:50:00",
-        "name": "Conduct Cleaning",
-        "status": "Not started",
-        "end_date": "2025-11-04 19:00:00"
-    },
-    {
-        "status": "Not started",
-        "due_date": "2025-11-11",
-        "name": "Follow up on Epoxy Resin Keychain curing and pickup"
+        "time": "Thursday, 6th November 2025",
+        "date": "Thursday, 6th November 2025",
+        "name": "Dry Run"
     }
 ]

@@ -121,8 +121,25 @@ def update_timeline_database(tasks: list[dict]):
 def update_event_planning_database(plan: dict):
     """Update the local event_planning.json database with overall event details."""
     try:
+        existing = {}
+        if os.path.exists(EVENT_PLANNING_FILE):
+            try:
+                with open(EVENT_PLANNING_FILE, 'r', encoding='utf-8') as f:
+                    existing = json.load(f)
+            except: pass
+            
+        new_name = plan.get('event_name')
+        existing_name = existing.get('event_name')
+        
+        # Merge the new plan into existing data
+        existing.update(plan)
+        
+        # Ensure event_name is not lost if the agent didn't provide it
+        if not new_name and existing_name:
+            existing['event_name'] = existing_name
+            
         with open(EVENT_PLANNING_FILE, 'w', encoding='utf-8') as f:
-            json.dump(plan, f, indent=4)
+            json.dump(existing, f, indent=4)
         return "Local event planning database updated."
     except Exception as e: return f"Error: {e}"
 
