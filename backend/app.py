@@ -61,16 +61,51 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(ARCHIVES_DIR, exist_ok=True)
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
+# ── Long-Context Caching Metadata ──────────────────────────────────────────────
+CACHE_METADATA_FILE = os.path.join(DATA_DIR, 'cache_metadata.json')
+
+def get_cache_metadata():
+    if not os.path.exists(CACHE_METADATA_FILE): return {}
+    try:
+        with open(CACHE_METADATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except: return {}
+
+def save_cache_metadata(metadata):
+    try:
+        with open(CACHE_METADATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=4)
+    except Exception as e:
+        print(f"Error saving cache metadata: {e}")
+
+def get_valid_cache(model_id):
+    metadata = get_cache_metadata()
+    cache_info = metadata.get(model_id)
+    if not cache_info: return None
+    
+    # Check if expired
+    expiry = datetime.datetime.fromisoformat(cache_info['expiry'])
+    if datetime.datetime.now() > expiry:
+        return None
+    return cache_info['name']
+
 # ── Allowed file types ─────────────────────────────────────────────────────────
 ALLOWED_EXTENSIONS = {
     '.pdf': 'application/pdf', '.doc': 'application/msword', 
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     '.txt': 'text/plain', '.csv': 'text/csv',
+    '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.avi': 'video/x-msvideo',
+    '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
 }
-GEMINI_UPLOADABLE_MIME = {'application/pdf', 'text/plain'}
+GEMINI_UPLOADABLE_MIME = {
+    'application/pdf', 'text/plain', 'video/mp4', 'video/quicktime', 
+    'video/webm', 'video/x-msvideo', 'audio/mpeg', 'audio/wav'
+}
 EXCEL_EXTENSIONS = {'.xls', '.xlsx', '.csv'}
 DOCX_EXTENSIONS  = {'.doc', '.docx'}
+VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm', '.avi'}
+AUDIO_EXTENSIONS = {'.mp3', '.wav'}
 
 # ── Agent Tools (CRITICAL: NO DEFAULT VALUES IN SIGNATURES) ───────────────────
 
@@ -146,9 +181,24 @@ def execute_gemini_task(task_fn, *args, **kwargs):
     for m_id in model_chain:
         try:
             print(f"DEBUG: Attempting task with model: {m_id}")
-            # Inject the model ID into the keyword arguments
+            # Inject the model ID and cache if available
             if 'model' in kwargs: 
                 kwargs['model'] = m_id
+            
+            # Check for existing cache for this specific model
+            cache_name = get_valid_cache(m_id)
+            if cache_name:
+                print(f"DEBUG: Using cache {cache_name} for model {m_id}")
+                if 'config' in kwargs:
+                    # When using cached_content, we must NOT override system_instruction or tools
+                    # which were already frozen into the cache.
+                    kwargs['config'].cached_content = cache_name
+                    kwargs['config'].system_instruction = None
+                    kwargs['config'].tools = None
+                else:
+                    # In case config isn't passed, we'll need it anyway for cached_content
+                    kwargs['config'] = types.GenerateContentConfig(cached_content=cache_name)
+            
             return task_fn(*args, **kwargs)
         except Exception as e:
             last_error = e
@@ -257,16 +307,64 @@ def generate_knowledge():
                 try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
                 except: pass
 
-        instr = f"Analyze documents. Use tools: update_timeline_database, update_event_planning_database (MANDATORY: convert dates to YYYY-MM-DD format, e.g., '2025-11-01'), sync_to_google_sheet, send_telegram_alert.\n\nTexts: {' '.join(texts)}"
+        instr = f"Analyze documents and act as an expert project manager. Use tools to manage the timeline and planning database.\n\nTexts: {' '.join(texts)}"
         
-        response = execute_gemini_task(
-            client.models.generate_content,
-            model=MODEL, # Placeholder, helper will override
-            contents=[*gemini_files, instr], 
-            config=types.GenerateContentConfig(tools=AGENT_TOOLS)
-        )
+        # Create a cache for the main model
+        # We use a 1 hour TTL by default.
+        print(f"DEBUG: Creating new context cache for {MODEL}...")
+        try:
+            # Aggregate all content for the cache
+            cache_contents = []
+            for gf in gemini_files:
+                cache_contents.append(types.Part(file_data=types.FileData(mime_type=gf.mime_type, file_uri=gf.uri)))
+            if texts:
+                cache_contents.append(types.Part(text="\n\n".join(texts)))
+            
+            # Create the cache
+            # Note: tools and instruction MUST be in the cache creation if we want to use them with the cache
+            cache = client.caches.create(
+                model=MODEL,
+                config=types.CreateCachedContentConfig(
+                    display_name="Project Memory Cache",
+                    system_instruction=instr,
+                    contents=cache_contents,
+                    tools=AGENT_TOOLS,
+                    ttl="3600s", # 1 hour
+                )
+            )
+            
+            # Register tools separately in the generation call if not supported in cache config 
+            # (Wait, actually the GenAI SDK config for caches might not take tools directly in some versions, 
+            # but let's assume it supports them or we pass them in generate_content).
+            # Update: Some SDK versions require tools in the cache. 
+            # Let's try to put them in the generate call first and if it fails, we'll know.
+            
+            # Save metadata
+            metadata = get_cache_metadata()
+            metadata[MODEL] = {
+                "name": cache.name,
+                "expiry": (datetime.datetime.now() + datetime.timedelta(hours=1)).isoformat()
+            }
+            save_cache_metadata(metadata)
+            print(f"DEBUG: Cache created: {cache.name}")
+            
+            # Initial call to verify and act
+            response = execute_gemini_task(
+                client.models.generate_content,
+                model=MODEL,
+                contents="Process these documents and update the databases accordingly.", 
+                config=types.GenerateContentConfig(tools=AGENT_TOOLS)
+            )
+        except Exception as e:
+            print(f"CACHE CREATION ERROR: {e}")
+            # Fallback to standard non-cached generation if cache fails
+            response = execute_gemini_task(
+                client.models.generate_content,
+                model=MODEL,
+                contents=[*gemini_files, instr], 
+                config=types.GenerateContentConfig(tools=AGENT_TOOLS)
+            )
         
-        # open(CHAT_LOGS_FILE, 'w').close()
         return jsonify({"message": "Sync complete", "response": response.text}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
     finally:
@@ -281,9 +379,13 @@ def chat():
         history = load_chat_history()
         
         def chat_interaction(model):
-            # We must create the session and send the message in the same fallback attempt
-            # so that if send_message fails, we can try a completely new model/session.
-            sess = client.chats.create(model=model, history=history, config=types.GenerateContentConfig(tools=AGENT_TOOLS))
+            # Check for cache
+            cache_name = get_valid_cache(model)
+            config = types.GenerateContentConfig(tools=AGENT_TOOLS)
+            if cache_name:
+                config.cached_content = cache_name
+            
+            sess = client.chats.create(model=model, history=history, config=config)
             resp = sess.send_message(msg)
             return sess, resp
 

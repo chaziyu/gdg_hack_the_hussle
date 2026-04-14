@@ -34,8 +34,8 @@ graph TD
 
 ## ✨ Key Features
 
-### 🔍 Intelligent Knowledge Extraction
-Upload messy PDFs, Word documents, or Excel spreadsheets. DriveBot's AI analyzes the content, summarizes the mission, and extracts critical dates and requirements.
+### 🔍 Multimodal Knowledge Extraction
+Upload PDFs, spreadsheets, or even **video recordings of meetings**. DriveBot's AI analyzes the visual and audio content, summarizes the mission, and extracts critical action items directly from the footage.
 
 ### 📅 Dynamic Timeline Management
 The system maintains a live database of tasks. The AI can automatically update status, adjust deadlines, and cross-reference tasks against the overall event objectives.
