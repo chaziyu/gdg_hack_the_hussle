@@ -379,7 +379,7 @@ def generate_knowledge():
                 try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
                 except: pass
 
-        instr = f"Analyze documents and act as an expert project manager. Use tools to manage the timeline and planning database.\n\nTexts: {' '.join(texts)}"
+        instr = f"Analyze documents and act as an expert project manager. Extract all relevant department-specific information into a flexible structure. Use tools to manage the timeline and planning databases. CRITICAL: When updating the event planning database, ALWAYS include a comprehensive 'summary' key that describes the overall event.\n\nTexts: {' '.join(texts)}"
         
         # Create a cache for the main model
         # We use a 1 hour TTL by default.
