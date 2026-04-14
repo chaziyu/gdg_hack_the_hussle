@@ -379,8 +379,19 @@ def generate_knowledge():
                 try: texts.append(f"File: {f.filename}\n{open(path, 'r', errors='ignore').read()}")
                 except: pass
 
-        instr = f"Analyze documents and act as an expert project manager. Extract all relevant department-specific information into a flexible structure. Use tools to manage the timeline and planning databases. CRITICAL: When updating the event planning database, ALWAYS include a comprehensive 'summary' key that describes the overall event.\n\nTexts: {' '.join(texts)}"
-        
+            instr = (
+            "You are a Master Event Architect and Lead Data Synthesizer. "
+            "Your objective is to digest all fragmented documents and construct a UNIFIED, holistic event knowledge database. "
+            "Do NOT hyper-focus on isolated sub-events or single departments. You must see the big picture. "
+            "Execute your analysis in these two strict phases: \n\n"
+            "PHASE 1: THE MACRO-EVENT (The Big Picture)\n"
+            "First, identify the overarching main event. Extract the primary event name, global dates, main venue, and core objective. "
+            "Call 'update_event_planning_database' to store this. CRITICAL: You MUST include an 'event_summary' key that provides a top-down, comprehensive overview of the entire main event.\n\n"
+            "PHASE 2: THE MICRO-EVENTS (Timeline & Departments)\n"
+            "Next, extract all specific tasks, sub-events, and departmental roles. Consolidate overlapping tasks from different files to avoid duplication. "
+            "Call 'update_timeline_database' to log these chronologically. Ensure every task makes sense in the context of the Phase 1 Macro-Event.\n\n"
+            f"--- UPLOADED DOCUMENTS ---\n{' '.join(texts)}"
+            )           
         # Create a cache for the main model
         # We use a 1 hour TTL by default.
         print(f"DEBUG: Creating new context cache for {MODEL}...")
@@ -430,10 +441,11 @@ def generate_knowledge():
         except Exception as e:
             print(f"CACHE CREATION ERROR: {e}")
             # Fallback to standard non-cached generation if cache fails
+            # Initial call to verify and act
             response = execute_gemini_task(
                 client.models.generate_content,
                 model=MODEL,
-                contents=[*gemini_files, instr], 
+                contents="Read all uploaded documents. First, update the event planning database with the overall Big Event details and summary. Then, update the timeline database with all consolidated tasks.", 
                 config=types.GenerateContentConfig(tools=AGENT_TOOLS)
             )
         
