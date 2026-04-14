@@ -488,7 +488,7 @@ def api_summarize(): return jsonify({"message": summarize_and_share_event()})
 def api_reminders():
     if not os.path.exists(TIMELINE_TASKS_FILE): return jsonify({"message": "No tasks"}), 404
     tasks = json.load(open(TIMELINE_TASKS_FILE, 'r'))
-    msg = "📅 **FULL TASK LIST**\n" + "\n".join([f"• {t.get('title')} ({t.get('status')})" for t in tasks])
+    msg = "📅 **FULL TASK LIST**\n" + "\n".join([f"• {t.get('name') or t.get('title', 'Unnamed')} ({t.get('status', 'Unknown')})" for t in tasks])
     return jsonify({"message": send_telegram_alert(msg)})
 
 # Calendar sync route removed as requested.
