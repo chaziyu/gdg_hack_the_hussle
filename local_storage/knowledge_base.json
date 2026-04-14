@@ -1,207 +1,60 @@
 {
     "event_planning": {
-        "event_name": "MHW Event",
-        "event_summary": "The MHW Event is a week-long event focused on DIY Art Making, featuring two main workshops: Epoxy Resin Keychain Crafts and Natural Element Framed Art. The event aims to encourage creativity, mindfulness, and fun among student participants. Each workshop is designed to be a 45-minute session with a focus on hands-on creation, guided by facilitators. The event also includes logistics for registration, setup, and closing, with a total of 30 participants expected per day, split into two sessions for each workshop. The overall event spans from November 3rd to November 7th, 2025, with specific workshop dates on Tuesday, November 4th, 2025.",
-        "event_venue": "BT3 & BT4",
+        "event_name": "MHW Event 2025 (Mental Health Wellness)",
+        "event_summary": "The MHW Event 2025 is a comprehensive week-long initiative focused on student well-being and emotional expression. The event incorporates a variety of interactive activities including DIY Art Making, Station Games, and a Colour Run. Central to the program is the 'Wall of Thoughts' where students share feelings via sticky notes, alongside the 'Share Your Love' campaign, all designed to foster a supportive and expressive campus environment.",
+        "event_venue": "Campus Venue (TBC)",
         "event_date": "3rd November 2025 - 7th November 2025",
-        "objectives": "To provide a platform for students to express creativity and mindfulness through DIY art activities, fostering a fun and engaging experience."
+        "objectives": "To facilitate emotional expression among students, promote mental health awareness through creative and physical engagement, and provide a platform for sharing positive messages."
     },
     "timeline_tasks": [
         {
-            "time": "3rd - 7th Nov 2025",
+            "task_name": "DIY Art Making",
+            "assigned_to": "TBC",
+            "status": "To Do",
+            "deadline": "TBC",
+            "time": "TBC"
+        },
+        {
+            "assigned_to": "TBC",
+            "task_name": "Station Games Management",
+            "status": "To Do",
+            "deadline": "TBC",
+            "time": "TBC"
+        },
+        {
+            "task_name": "Colour Run Coordination",
+            "assigned_to": "TBC",
+            "status": "To Do",
+            "deadline": "TBC",
+            "time": "TBC"
+        },
+        {
+            "time": "TBC",
+            "status": "To Do",
+            "deadline": "TBC",
+            "task_name": "Package Registration",
+            "assigned_to": "TBC"
+        },
+        {
+            "time": "TBC",
+            "task_name": "Day-of Logistics Planning",
+            "assigned_to": "Logistics Team (TBC)",
+            "status": "To Do",
+            "deadline": "TBC"
+        },
+        {
+            "status": "To Do",
+            "deadline": "7th November 2025",
+            "assigned_to": "TBC",
             "task_name": "Wall of Thoughts (Sticky Note Activity)",
-            "status": "To Do",
-            "deadline": "7th November 2025",
-            "assigned_to": "MHW Committee"
-        },
-        {
-            "deadline": "5:15 PM",
-            "assigned_to": "Jun Yong, Logistics Team",
-            "status": "To Do",
-            "task_name": "DIY Art Making: Registration & Setup",
-            "time": "5:00 PM - 5:15 PM (4th Nov)"
-        },
-        {
-            "time": "5:15 PM - 6:00 PM (4th Nov)",
-            "task_name": "Workshop Session 1: Epoxy Resin Keychain Crafts (BT3)",
-            "status": "To Do",
-            "assigned_to": "Teh Jia Jie, Chew Chen Xi, Tan Jun Yong, Logistics Member",
-            "deadline": "6:00 PM"
-        },
-        {
-            "task_name": "Workshop Session 1: Natural Element Framed Art (BT4)",
-            "time": "5:15 PM - 6:00 PM (4th Nov)",
-            "deadline": "6:00 PM",
-            "assigned_to": "Lim Xuan Ning, Daniel Goh Zhi Qian, Logistics Member",
-            "status": "To Do"
-        },
-        {
-            "assigned_to": "Workshop PICs",
-            "deadline": "6:45 PM",
-            "status": "To Do",
-            "task_name": "Workshop Session 2: Group Swap & Activity Continuation",
-            "time": "6:00 PM - 6:45 PM (4th Nov)"
+            "time": "3rd November 2025 - 7th November 2025"
         },
         {
             "status": "To Do",
-            "deadline": "6:50 PM",
-            "assigned_to": "Workshop PICs",
-            "time": "6:45 PM - 6:50 PM (4th Nov)",
-            "task_name": "Workshop Photo Session"
-        },
-        {
-            "time": "6:50 PM - 7:00 PM (4th Nov)",
-            "task_name": "Cleaning & Pack-up",
-            "status": "To Do",
-            "assigned_to": "Logistics Team, Workshop PICs",
-            "deadline": "7:15 PM"
-        },
-        {
-            "status": "To Do",
-            "deadline": "2:15 PM",
-            "assigned_to": "Logistics Team, PA Team",
-            "time": "1:00 PM - 2:15 PM (7th Nov)",
-            "task_name": "Station Games: Setup"
-        },
-        {
-            "deadline": "2:15 PM",
-            "assigned_to": "Xuan Ning, Logistics Member",
-            "status": "To Do",
-            "task_name": "Station Games: Participant Registration",
-            "time": "2:00 PM - 2:15 PM (7th Nov)"
-        },
-        {
-            "assigned_to": "Lim Xuan Ning",
-            "deadline": "2:30 PM",
-            "status": "To Do",
-            "task_name": "Station Games: Opening & Briefing",
-            "time": "2:15 PM - 2:30 PM (7th Nov)"
-        },
-        {
-            "time": "2:30 PM - 3:40 PM (7th Nov)",
-            "task_name": "Station Game 1: Mood in Motion",
-            "status": "To Do",
-            "assigned_to": "Teh Jia Jie, Logistics Team",
-            "deadline": "3:40 PM"
-        },
-        {
-            "status": "To Do",
-            "assigned_to": "Tan Jun Yong, Logistics Team",
-            "deadline": "3:40 PM",
-            "time": "2:30 PM - 3:40 PM (7th Nov)",
-            "task_name": "Station Game 2: Peace Bingo"
-        },
-        {
-            "status": "To Do",
-            "deadline": "3:40 PM",
-            "assigned_to": "Daniel Goh Zhi Qian, Logistics Member",
-            "time": "2:30 PM - 3:40 PM (7th Nov)",
-            "task_name": "Station Game 3: Protect Your Peace"
-        },
-        {
-            "status": "To Do",
-            "deadline": "3:40 PM",
-            "assigned_to": "Chew Chen Xi, Logistics Member",
-            "time": "2:30 PM - 3:40 PM (7th Nov)",
-            "task_name": "Station Game 4: Sticker Shout-Out"
-        },
-        {
-            "task_name": "Station Game 5: Seeds of Positivity",
-            "time": "2:30 PM - 3:40 PM (7th Nov)",
-            "assigned_to": "Lim Xuan Ning, Logistics Member",
-            "deadline": "3:40 PM",
-            "status": "To Do"
-        },
-        {
-            "status": "To Do",
-            "assigned_to": "Xuan Ning",
-            "deadline": "4:00 PM",
-            "time": "3:40 PM - 4:00 PM (7th Nov)",
-            "task_name": "Station Games: Awarding Ceremony"
-        },
-        {
-            "status": "To Do",
-            "deadline": "4:30 PM",
-            "assigned_to": "Logistics Team, Winning Team",
-            "time": "4:00 PM - 4:30 PM (7th Nov)",
-            "task_name": "Legacy Project: The Box of Sunshine & Cleaning"
-        },
-        {
-            "task_name": "Colour Run: Registration & Kit Distribution",
-            "time": "7:00 AM - 7:30 AM (9th Nov)",
-            "assigned_to": "Heng Jing Yu, Tan Ker Li, Howard, Logistics Team",
-            "deadline": "7:30 AM",
-            "status": "To Do"
-        },
-        {
-            "deadline": "8:00 AM",
-            "assigned_to": "Multimedia Team, Logistics Station 3",
-            "status": "To Do",
-            "task_name": "Colour Run: Color Powder Preparation",
-            "time": "7:00 AM - 8:00 AM (9th Nov)"
-        },
-        {
-            "assigned_to": "Safety HOD",
-            "deadline": "7:10 AM",
-            "status": "To Do",
-            "task_name": "Colour Run: First Aid Kit Distribution",
-            "time": "7:00 AM (9th Nov)"
-        },
-        {
-            "assigned_to": "Zi Yu, Jun Yong, Si Ying",
-            "deadline": "7:50 AM",
-            "status": "To Do",
-            "task_name": "Colour Run: Warm-up & Briefing",
-            "time": "7:30 AM - 7:50 AM (9th Nov)"
-        },
-        {
-            "deadline": "8:00 AM",
-            "assigned_to": "Zi Yu, Howard",
-            "status": "To Do",
-            "task_name": "Colour Run: Race Start & Traffic Control",
-            "time": "7:50 AM (9th Nov)"
-        },
-        {
-            "status": "To Do",
-            "deadline": "9:40 AM",
-            "assigned_to": "Daniel, Jia Jie, Hao Leong, Guang Hoong",
-            "time": "8:00 AM - 9:40 AM (9th Nov)",
-            "task_name": "Station 1 Management (The Path of Focus)"
-        },
-        {
-            "assigned_to": "Chen Xi, Xuan Ning, Yan Wen, Hani, Howard",
-            "deadline": "9:40 AM",
-            "status": "To Do",
-            "task_name": "Station 2 Management (The Spoon Challenge)",
-            "time": "8:15 AM - 9:40 AM (9th Nov)"
-        },
-        {
-            "status": "To Do",
-            "assigned_to": "Si Ying",
-            "deadline": "9:40 AM",
-            "time": "8:30 AM - 9:40 AM (9th Nov)",
-            "task_name": "Traffic Monitoring (UM 2025 Logo)"
-        },
-        {
-            "task_name": "Station 3 & Finish Line Management (Pose for a Cause)",
-            "time": "8:45 AM - 10:00 AM (9th Nov)",
-            "assigned_to": "Geok Liu, Ivan Mak, Ivan Tao, Deric, Xian Jie, Jing Yu, Ker Li, Jun Yong, Zi Yu",
-            "deadline": "10:00 AM",
-            "status": "To Do"
-        },
-        {
-            "task_name": "Post-Run: Dream Weaver Wall & Grand Finale Colour Toss",
-            "time": "9:40 AM - 10:00 AM (9th Nov)",
-            "assigned_to": "Zi Yu, Deric Ing, Ong Xian Jie, Multimedia Team",
-            "deadline": "10:00 AM",
-            "status": "To Do"
-        },
-        {
-            "task_name": "Colour Run: Final Sweep & Cleaning",
-            "time": "10:00 AM - 10:30 AM (9th Nov)",
-            "assigned_to": "Logistics Team, Chris",
-            "deadline": "11:00 AM",
-            "status": "To Do"
+            "deadline": "TBC",
+            "task_name": "Share Your Love Activity",
+            "assigned_to": "TBC",
+            "time": "TBC"
         }
     ]
 }

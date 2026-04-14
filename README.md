@@ -20,8 +20,7 @@ graph TD
     
     subgraph Persistence
         API -->|Read/Write| DB[(Local JSON Storage)]
-        DB -.->|Tasks| Timeline[timeline_tasks.json]
-        DB -.->|Plans| EventPlan[event_planning.json]
+        DB -.->|Unified Knowledge| KB[knowledge_base.json]
     end
     
     subgraph Integrations
@@ -87,6 +86,23 @@ This script will:
 1. Install backend dependencies.
 2. Build the optimized React frontend.
 3. Start the production-ready server on [http://localhost:5000](http://localhost:5000).
+
+---
+
+## 🛠 Troubleshooting
+
+### 🛑 "Failed to fetch" Error
+If you encounter this error in the React frontend, it means the browser cannot communicate with the Flask backend. 
+
+**How to Fix:**
+1. **Make Sure the Backend is Running**: React (Vite) and Python (Flask) run as separate processes. If you only started the frontend, the API requests will fail. 
+   - **Solution**: Run `./host_system.ps1` in a new terminal. Or manually:
+     ```bash
+     cd backend
+     python app.py
+     ```
+2. **Check for Backend Crashes**: Inspect the terminal where the backend is running. Check for missing environment variables (`.env`) or invalid `GEMINI_API_KEY`.
+3. **Verify Port 5000**: Ensure no other application is using port `5000`. You can check this by running `netstat -ano | findstr :5000` in PowerShell.
 
 ---
 

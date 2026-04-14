@@ -48,6 +48,48 @@ ADMIN_CHAT_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
 MODEL = "gemini-3.1-flash-lite-preview"
 FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash-preview"]
 
+# ── Structured Output Schema (Raw Dictionary to bypass Pydantic bug) ──
+EVENT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "event_name": {"type": "STRING", "description": "The overarching macro-event name (e.g., Mental Health Week 2025)"},
+        "event_summary": {"type": "STRING", "description": "A holistic summary of the entire event"},
+        "sub_events": {
+            "type": "ARRAY",
+            "description": "An array of all distinct sub-programs or activities.",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "sub_event_name": {"type": "STRING", "description": "Name of the specific program/activity"},
+                    "description": {"type": "STRING", "description": "What this specific sub-event is about"},
+                    "associated_files": {
+                        "type": "ARRAY",
+                        "description": "List the exact filenames that contained information about this sub-event",
+                        "items": {"type": "STRING"}
+                    },
+                    "tasks": {
+                        "type": "ARRAY",
+                        "description": "Tasks specifically belonging to this sub-event",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "task_name": {"type": "STRING", "description": "The name of the task"},
+                                "status": {"type": "STRING", "description": "Current status (e.g., Pending, In Progress, Completed)"},
+                                "time": {"type": "STRING", "description": "General schedule time (e.g., 7:00 AM)"},
+                                "assigned_to": {"type": "STRING", "description": "The person or team responsible for the task"},
+                                "deadline": {"type": "STRING", "description": "Specific deadline date/time (if any)"}
+                            },
+                            "required": ["task_name", "status"]
+                        }
+                    }
+                },
+                "required": ["sub_event_name", "description", "tasks"]
+            }
+        }
+    },
+    "required": ["event_name", "event_summary", "sub_events"]
+}
+
 # ── File paths ─────────────────────────────────────────────────────────────────
 DATA_DIR            = os.path.join(BASE_DIR, 'local_storage')
 CHAT_LOGS_FILE      = os.path.join(DATA_DIR, 'chat_logs.txt')
@@ -344,7 +386,7 @@ def execute_gemini_task(task_fn, *args, **kwargs):
                     # Since execute_gemini_task is used for non-chat too, we'll try to handle it.
                     if 'contents' in kwargs:
                         # Add assistant parts (calls) and tool parts (responses) to contents for next call
-                        kwargs['contents'].append(types.Content(role="model", parts=resp.parts))
+                        kwargs['contents'].append(types.Content(role="model", parts=resp.candidates[0].content.parts))
                         kwargs['contents'].append(types.Content(role="user", parts=tool_responses))
                         resp = task_fn(*args, **kwargs)
                     else:
@@ -499,49 +541,48 @@ def generate_knowledge():
         
         session_contents.append(types.Part(text="Process all these documents. Run Phase 1 and Phase 2. Ensure NO data is missed from any file."))
 
-        # Attempt with persistent context cache (Blueprint Optimized)
-        print("DEBUG: Caching large event documents...")
+        # Perform Structured Extraction
+        print("DEBUG: Requesting structured extraction from Gemini...")
+        config = types.GenerateContentConfig(
+            system_instruction=instr,
+            response_mime_type="application/json",
+            response_schema=EVENT_SCHEMA,
+            temperature=0.1
+        )
+        
+        # Use execute_gemini_task for model fallback support
+        response = execute_gemini_task(
+            client.models.generate_content,
+            model=MODEL,
+            contents=session_contents,
+            config=config
+        )
+        
+        # Parse and Update Database
         try:
-            # Prepare parts for cache
-            cache_parts = []
-            for gf in gemini_files:
-                cache_parts.append(types.Part(file_data=types.FileData(mime_type=gf.mime_type, file_uri=gf.uri)))
-            if texts:
-                cache_parts.append(types.Part(text="\n\n".join(texts)))
-
-            cache = client.caches.create(
-                model=MODEL,
-                config=types.CreateCachedContentConfig(
-                    display_name=f"DriveBot_Cache_{datetime.datetime.now().strftime('%H%M%S')}",
-                    system_instruction=instr,
-                    contents=cache_parts,
-                    ttl="3600s"
-                )
-            )
+            data = json.loads(response.text)
+            kb = _get_kb()
+            kb['event_planning']['event_name'] = data.get('event_name', kb['event_planning'].get('event_name', 'Event'))
+            kb['event_planning']['event_summary'] = data.get('event_summary', kb['event_planning'].get('event_summary', ''))
             
-            # Save metadata
-            metadata = get_cache_metadata()
-            metadata[MODEL] = {"name": cache.name, "expiry": (datetime.datetime.now() + datetime.timedelta(hours=1)).isoformat()}
-            save_cache_metadata(metadata)
+            # Update tasks (Flattening the hierarchy for compatibility)
+            all_tasks = []
+            for se in data.get('sub_events', []):
+                se_name = se.get('sub_event_name', 'General')
+                for t in se.get('tasks', []):
+                    # Optionally prepend sub-event name to keep context in flat view
+                    if se_name != 'General':
+                         t['task_name'] = f"{t.get('task_name')} [{se_name}]"
+                    all_tasks.append(t)
             
-            print(f"DEBUG: Extracting structured data from cache: {cache.name}")
-            config = types.GenerateContentConfig(
-                cached_content=cache.name, 
-                tools=AGENT_TOOLS, 
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False)
-            )
-            sess = client.chats.create(model=MODEL, config=config)
-            response = sess.send_message("Process all these documents. Run Phase 1 and Phase 2. Ensure NO data is missed from any file.")
-        except Exception as e:
-            print(f"CACHE/SESSION ERROR: {e}. Falling back to standard generation.")
-            # Fallback
-            fb_contents = [types.Part(text=instr)] + session_contents
-            response = execute_gemini_task(
-                client.models.generate_content,
-                model=MODEL,
-                contents=fb_contents, 
-                config=types.GenerateContentConfig(tools=AGENT_TOOLS, automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False))
-            )
+            if all_tasks:
+                kb['timeline_tasks'] = all_tasks
+            
+            _save_kb(kb)
+            print("DEBUG: Structured extraction successfully saved to KB.")
+        except Exception as pe:
+            print(f"ERROR Parsing Gemini JSON: {pe}")
+            return jsonify({"error": f"Failed to parse extraction result: {str(pe)}"}), 500
         
         # Write to file index
         file_index = []
