@@ -1,0 +1,32 @@
+[
+    {
+        "date": "2025-11-03 to 2025-11-07",
+        "task": "Manage Wall of Thoughts (sticky note message board)",
+        "department": "Logistics/Programming"
+    },
+    {
+        "date": "2025-11-03 to 2025-11-07",
+        "task": "Facilitate DIY Art Making station",
+        "department": "Programming"
+    },
+    {
+        "date": "2025-11-03 to 2025-11-07",
+        "department": "Programming",
+        "task": "Facilitate Station Games"
+    },
+    {
+        "date": "2025-11-03 to 2025-11-07",
+        "task": "Facilitate Colour Run",
+        "department": "Programming/Sports"
+    },
+    {
+        "task": "Manage Proposed Package Registration",
+        "department": "Administration/Registration",
+        "date": "2025-11-03 to 2025-11-07"
+    },
+    {
+        "department": "Programming",
+        "task": "Manage Share Your Love activity",
+        "date": "2025-11-03 to 2025-11-07"
+    }
+]

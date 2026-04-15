@@ -410,10 +410,10 @@ export default function App() {
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             className={`flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-xl cursor-pointer transition-colors mb-4 ${isDragging
-                ? 'border-indigo-400 bg-indigo-500/15'
-                : files.length > 0
-                  ? 'border-indigo-500 bg-indigo-500/10'
-                  : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-600'
+              ? 'border-indigo-400 bg-indigo-500/15'
+              : files.length > 0
+                ? 'border-indigo-500 bg-indigo-500/10'
+                : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-600'
               }`}
           >
             <div className="flex flex-col items-center justify-center py-4 pointer-events-none">
@@ -459,29 +459,17 @@ export default function App() {
             </ul>
           )}
 
-          {/* Knowledge DB badges */}
-          <div className="flex gap-2 mb-4">
-            <div className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-400">
-              <Layers className="w-3.5 h-3.5 text-sky-400" />
-              <span>DB 1: Timeline &amp; Tasks</span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-400">
-              <Layers className="w-3.5 h-3.5 text-violet-400" />
-              <span>DB 2: Event Planning</span>
-            </div>
-          </div>
-
           {/* Sync button */}
           <button
             onClick={handleSync}
             disabled={files.length === 0 || isSyncing}
             className={`w-full py-4 px-6 rounded-lg font-medium text-lg flex items-center justify-center gap-2 transition-all ${files.length === 0
-                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                : isSyncing
-                  ? 'bg-indigo-600/70 text-white cursor-wait'
-                  : syncSuccess
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20'
+              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+              : isSyncing
+                ? 'bg-indigo-600/70 text-white cursor-wait'
+                : syncSuccess
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20'
               }`}
           >
             {isSyncing ? (
@@ -650,8 +638,8 @@ export default function App() {
                 >
                   <div
                     className={`max-w-[80%] rounded-2xl px-5 py-3 ${msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-tr-sm'
-                        : 'bg-gray-800 text-gray-200 border border-gray-700 rounded-tl-sm'
+                      ? 'bg-indigo-600 text-white rounded-tr-sm'
+                      : 'bg-gray-800 text-gray-200 border border-gray-700 rounded-tl-sm'
                       }`}
                   >
                     {msg.role === 'ai' ? (
