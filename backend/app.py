@@ -651,13 +651,16 @@ def api_reminders():
     
     formatted_tasks = []
     for t in tasks:
-        t_name = t.get('name') or t.get('title') or t.get('Task', 'Unnamed')
+        t_name = t.get('task') or t.get('name') or t.get('title') or t.get('Task', 'Unnamed')
         t_status = t.get('status') or t.get('Status') or 'Pending'
-        t_time = t.get('time') or t.get('Time') or ''
+        t_date = t.get('date') or t.get('time') or t.get('Time') or ''
+        t_dept = t.get('department') or t.get('Department') or ''
         
         task_str = f"• {t_name} ({t_status})"
-        if t_time:
-            task_str += f" - {t_time}"
+        if t_dept:
+            task_str += f" | {t_dept}"
+        if t_date:
+            task_str += f" | 📅 {t_date}"
         formatted_tasks.append(task_str)
         
     msg = "📅 **FULL TASK LIST**\n" + "\n".join(formatted_tasks)

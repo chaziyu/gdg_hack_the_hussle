@@ -548,7 +548,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Summarize */}
             <button
               onClick={() => runAction('summarize', '/api/actions/summarize')}
@@ -582,24 +582,6 @@ export default function App() {
               </div>
               {actionStatus.id === 'reminders' && actionStatus.status === 'loading' && (
                 <Loader2 className="absolute top-2 right-2 w-4 h-4 animate-spin text-amber-400" />
-              )}
-            </button>
-
-            {/* Add to Calendar */}
-            <button
-              onClick={() => runAction('calendar', '/api/actions/calendar', 'POST')}
-              disabled={actionStatus.status === 'loading'}
-              className="group relative bg-gray-800 hover:bg-gray-750 border border-gray-700 p-4 rounded-xl flex flex-col items-center gap-3 transition-all hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10"
-            >
-              <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400 group-hover:scale-110 transition-transform">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div className="text-center">
-                <span className="block font-semibold">Add to Calendar</span>
-                <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Sync Schedule</span>
-              </div>
-              {actionStatus.id === 'calendar' && actionStatus.status === 'loading' && (
-                <Loader2 className="absolute top-2 right-2 w-4 h-4 animate-spin text-emerald-400" />
               )}
             </button>
           </div>
