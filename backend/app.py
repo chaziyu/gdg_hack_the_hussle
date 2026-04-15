@@ -14,6 +14,7 @@ from google.genai import types
 from dotenv import load_dotenv
 import datetime
 from pydantic import BaseModel, Field
+import urllib.parse
 
 # Load environment variables
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -206,6 +207,7 @@ def summarize_and_share_event():
                f"📝 **Overview:**\n{e_summary}")
         return send_telegram_alert(msg)
     except Exception as e: return f"Error: {e}"
+
 
 AGENT_TOOLS = [
     update_timeline_database, update_event_planning_database, get_event_planning_database,
@@ -490,8 +492,19 @@ def generate_knowledge():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """A clean chat endpoint that allows the AI to converse based on the new nested data."""
-    msg = request.get_json().get('message')
-    if not msg: return jsonify({"error": "No message"}), 400
+    raw_msg = request.get_json().get('message')
+    if not raw_msg: return jsonify({"error": "No message"}), 400
+    
+    # --- FIX: Inject a hidden prompt to force the AI to use its tools ---
+    # Because the cache is locked in "Data Synthesizer" mode, we must 
+    # explicitly instruct the AI to act as DriveBot for this specific chat turn.
+    augmented_msg = (
+        f"{raw_msg}\n\n"
+        "[SYSTEM NOTE: You are DriveBot, an AI project manager. "
+        "If the user asks about the event, you MUST use the `get_event_planning_database` "
+        "tool to fetch the specific project details before answering. "
+        "Do NOT give generic dictionary definitions.]"
+    )
     
     try:
         history = load_chat_history()
@@ -502,17 +515,22 @@ def chat():
             try:
                 print(f"DEBUG: Chat attempt with model: {m_id}")
                 cache_name = get_valid_cache(m_id)
+                
+                # Add system instruction to the config
                 config = types.GenerateContentConfig(
                     tools=AGENT_TOOLS,
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    system_instruction="You are DriveBot. Always check the database using your tools before answering questions."
                 )
+                
                 if cache_name:
                     config.cached_content = cache_name
 
                 sess = client.chats.create(model=m_id, history=history, config=config)
-                resp = sess.send_message(msg)
                 
-                # Safely get text which might fail if it's only function calls
+                # Send the augmented_msg instead of the raw_msg
+                resp = sess.send_message(augmented_msg)
+                
                 try:
                     resp_text = resp.text or ""
                 except ValueError:
@@ -553,8 +571,7 @@ def chat():
                 error_msg = str(e)
                 print(f"ERROR: Chat model {m_id} failed: {error_msg}")
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    continue  # quota — try next model
-                # For thought_signature or other errors, also try next model
+                    continue  
                 continue
 
         raise last_error if last_error else Exception("All chat models failed.")

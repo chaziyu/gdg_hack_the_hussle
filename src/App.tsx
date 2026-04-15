@@ -244,12 +244,12 @@ export default function App() {
       const res = await fetch(url, { method });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Action failed');
-      
+
       setActionStatus({ id, status: 'success' });
       setTimeout(() => setActionStatus({ id: '', status: 'idle' }), 3000);
-      
+
       if (data.message) {
-         setMessages(prev => [...prev, { role: 'ai', content: `[Quick Action] ${data.message}` }]);
+        setMessages(prev => [...prev, { role: 'ai', content: `[Quick Action] ${data.message}` }]);
       }
     } catch (err: any) {
       console.error(`Action ${id} failed:`, err);
@@ -300,8 +300,8 @@ export default function App() {
         {/* Background blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 blur-[120px] rounded-full" />
-        
-        <motion.div 
+
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl relative z-10"
@@ -321,7 +321,7 @@ export default function App() {
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest ml-1">Event Name</label>
               <div className="relative">
                 <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input 
+                <input
                   type="text"
                   required
                   value={eventName}
@@ -331,7 +331,6 @@ export default function App() {
                 />
               </div>
             </div>
-
 
             <button
               type="submit"
@@ -373,7 +372,7 @@ export default function App() {
           </div>
         </div>
         <div className="hidden md:flex items-center gap-4">
-           {/* Display session info here if needed */}
+          {/* Display session info here if needed */}
         </div>
       </header>
 
@@ -387,14 +386,14 @@ export default function App() {
               <h2 className="text-xl font-semibold">Data Sync Panel</h2>
             </div>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={handleResetFiles}
                 title="Reset File History"
                 className="p-2 text-gray-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-all"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
-              <button 
+              <button
                 onClick={handleClearKnowledge}
                 title="Clear Intelligence DB"
                 className="p-2 text-gray-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all"
@@ -410,13 +409,12 @@ export default function App() {
             onDrop={handleDrop}
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
-            className={`flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-xl cursor-pointer transition-colors mb-4 ${
-              isDragging
+            className={`flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-xl cursor-pointer transition-colors mb-4 ${isDragging
                 ? 'border-indigo-400 bg-indigo-500/15'
                 : files.length > 0
-                ? 'border-indigo-500 bg-indigo-500/10'
-                : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-600'
-            }`}
+                  ? 'border-indigo-500 bg-indigo-500/10'
+                  : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-600'
+              }`}
           >
             <div className="flex flex-col items-center justify-center py-4 pointer-events-none">
               <Upload className="w-9 h-9 text-gray-500 mb-2" />
@@ -477,15 +475,14 @@ export default function App() {
           <button
             onClick={handleSync}
             disabled={files.length === 0 || isSyncing}
-            className={`w-full py-4 px-6 rounded-lg font-medium text-lg flex items-center justify-center gap-2 transition-all ${
-              files.length === 0
+            className={`w-full py-4 px-6 rounded-lg font-medium text-lg flex items-center justify-center gap-2 transition-all ${files.length === 0
                 ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 : isSyncing
-                ? 'bg-indigo-600/70 text-white cursor-wait'
-                : syncSuccess
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20'
-            }`}
+                  ? 'bg-indigo-600/70 text-white cursor-wait'
+                  : syncSuccess
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20'
+              }`}
           >
             {isSyncing ? (
               <>
@@ -531,8 +528,6 @@ export default function App() {
               </div>
             </div>
           )}
-
-          {/* 🚀 Quick Actions Card (Nested or Separate? Let's make it separate for prominence) */}
         </div>
 
         {/* ── Quick Actions Card ───────────────────────────────────────────── */}
@@ -545,23 +540,23 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-               {detectedDate ? (
-                 <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mr-1">Detected Schedule</span>
-                    <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-1.5 text-xs text-emerald-400">
-                        <Calendar className="w-4 h-4" />
-                        <span>Event Date: <strong>{detectedDate}</strong></span>
-                    </div>
-                 </div>
-               ) : (
-                 <div className="flex flex-col items-end gap-1 opacity-60">
-                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mr-1">Status</span>
-                    <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-1.5 text-xs text-gray-500 italic">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>No Event Date Detected Yet</span>
-                    </div>
-                 </div>
-               )}
+              {detectedDate ? (
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mr-1">Detected Schedule</span>
+                  <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-1.5 text-xs text-emerald-400">
+                    <Calendar className="w-4 h-4" />
+                    <span>Event Date: <strong>{detectedDate}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-end gap-1 opacity-60">
+                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mr-1">Status</span>
+                  <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-1.5 text-xs text-gray-500 italic">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>No Event Date Detected Yet</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -602,6 +597,23 @@ export default function App() {
               )}
             </button>
 
+            {/* Add to Calendar */}
+            <button
+              onClick={() => runAction('calendar', '/api/actions/calendar', 'POST')}
+              disabled={actionStatus.status === 'loading'}
+              className="group relative bg-gray-800 hover:bg-gray-750 border border-gray-700 p-4 rounded-xl flex flex-col items-center gap-3 transition-all hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10"
+            >
+              <div className="p-3 bg-emerald-500/20 rounded-lg text-emerald-400 group-hover:scale-110 transition-transform">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div className="text-center">
+                <span className="block font-semibold">Add to Calendar</span>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Sync Schedule</span>
+              </div>
+              {actionStatus.id === 'calendar' && actionStatus.status === 'loading' && (
+                <Loader2 className="absolute top-2 right-2 w-4 h-4 animate-spin text-emerald-400" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -637,13 +649,16 @@ export default function App() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-5 py-3 ${
-                      msg.role === 'user'
+                    className={`max-w-[80%] rounded-2xl px-5 py-3 ${msg.role === 'user'
                         ? 'bg-indigo-600 text-white rounded-tr-sm'
                         : 'bg-gray-800 text-gray-200 border border-gray-700 rounded-tl-sm'
-                    }`}
+                      }`}
                   >
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    {msg.role === 'ai' ? (
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    ) : (
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    )}
                   </div>
                 </div>
               ))
@@ -671,6 +686,7 @@ export default function App() {
               />
               <button
                 type="submit"
+                aria-label="Send message"
                 disabled={!chatInput.trim() || isChatting}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-md transition-colors"
               >
