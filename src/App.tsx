@@ -379,7 +379,7 @@ export default function App() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
 
         {/* ── Data Sync Panel ─────────────────────────────────────────────── */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl flex flex-col">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl flex flex-col lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-indigo-400" />

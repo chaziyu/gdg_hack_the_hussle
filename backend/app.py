@@ -642,28 +642,59 @@ def api_reminders():
     
     e_name = kb['event_planning'].get('event_name', 'Event')
     
-    # Group tasks by status
-    categorized = {
-        "🔴 TO DO": [],
-        "🟡 IN PROGRESS": [],
-        "🟢 COMPLETED": []
-    }
+    # Extract date range (from first task, assuming all share same dates)
+    e_date = tasks[0].get('date') or tasks[0].get('time') or ''
+    date_display = e_date.split(' to ')[0][-5:] if ' to ' in e_date else e_date  # Extract "Nov 3"
     
-    formatted_tasks = []
+    # Group tasks by department
+    dept_groups = {}
     for t in tasks:
         t_name = t.get('task') or t.get('name') or t.get('title') or t.get('Task', 'Unnamed')
-        t_status = t.get('status') or t.get('Status') or 'Pending'
-        t_date = t.get('date') or t.get('time') or t.get('Time') or ''
-        t_dept = t.get('department') or t.get('Department') or ''
+        t_dept = t.get('department') or t.get('Department') or 'Uncategorized'
         
-        task_str = f"• {t_name} ({t_status})"
-        if t_dept:
-            task_str += f" | {t_dept}"
-        if t_date:
-            task_str += f" | 📅 {t_date}"
-        formatted_tasks.append(task_str)
+        # Use primary department (before "/" if exists)
+        primary_dept = t_dept.split('/')[0].strip()
         
-    msg = "📅 **FULL TASK LIST**\n" + "\n".join(formatted_tasks)
+        if primary_dept not in dept_groups:
+            dept_groups[primary_dept] = []
+        dept_groups[primary_dept].append({'name': t_name, 'full_dept': t_dept})
+    
+    # Department emoji mapping
+    dept_emoji = {
+        'Programming': '🎨',
+        'Logistics': '📦',
+        'Administration': '📋',
+        'Sports': '⚽',
+        'Marketing': '📢',
+        'Finance': '💰',
+        'Uncategorized': '📌'
+    }
+    
+    # Build formatted message with hierarchy
+    msg_lines = [f"⚡️ FULL TASK LIST ({date_display})"]
+    if e_date:
+        msg_lines.append(f"📅 Due: {e_date}")
+    msg_lines.append("")
+    
+    dept_keys = sorted(dept_groups.keys())
+    for dept_idx, dept in enumerate(dept_keys):
+        emoji = dept_emoji.get(dept, '📌')
+        msg_lines.append(f"{emoji} {dept.upper()}")
+        
+        dept_tasks = dept_groups[dept]
+        for task_idx, task in enumerate(dept_tasks):
+            is_last = (task_idx == len(dept_tasks) - 1)
+            prefix = "└" if is_last else "├"
+            msg_lines.append(f"{prefix} {task['name']}")
+        
+        # Add spacing between department groups if not last
+        if dept_idx < len(dept_keys) - 1:
+            msg_lines.append("")
+    
+    msg_lines.append("")
+    msg_lines.append("Status: All Pending")
+    
+    msg = "\n".join(msg_lines)
     return jsonify({"message": send_telegram_alert(msg)})
 
 # Calendar sync route removed as requested.
