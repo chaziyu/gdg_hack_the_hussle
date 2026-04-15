@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload, FileText, Send, Loader2, Database, Bot,
   CheckCircle, X, FileSpreadsheet, File, Layers,
-  Zap, Calendar, Bell, Sparkles, AlertCircle, Trash2, RotateCcw
+  Zap, Calendar, Bell, Sparkles, AlertCircle, Trash2, RotateCcw, Music, Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,7 +11,7 @@ interface ChatMessage {
   content: string;
 }
 
-const ACCEPTED = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx';
+const ACCEPTED = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx,.mp3,.mp4';
 
 function fileIcon(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
@@ -19,6 +19,10 @@ function fileIcon(name: string) {
     return <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />;
   if (['pdf'].includes(ext))
     return <FileText className="w-4 h-4 text-rose-400 shrink-0" />;
+  if (['mp3', 'wav'].includes(ext))
+    return <Music className="w-4 h-4 text-purple-400 shrink-0" />;
+  if (['mp4', 'mov', 'webm', 'avi'].includes(ext))
+    return <Video className="w-4 h-4 text-cyan-400 shrink-0" />;
   return <File className="w-4 h-4 text-indigo-400 shrink-0" />;
 }
 

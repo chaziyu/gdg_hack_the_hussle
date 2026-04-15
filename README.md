@@ -4,7 +4,7 @@ DriveBot is an AI-powered event planning assistant that turns unstructured event
 
 ## What DriveBot Does
 
-- Upload event planning documents: PDF, Word, Excel, CSV, and text files.
+- Upload event planning documents: PDF, Word, Excel, CSV, text files, and media (MP3, MP4).
 - Extract the event name, date, venue, summary, and timeline tasks.
 - Store event knowledge locally in `local_storage/`.
 - Answer questions about the event through AI chat.
@@ -36,6 +36,8 @@ DriveBot is an AI-powered event planning assistant that turns unstructured event
 - `.xls`, `.xlsx`
 - `.csv`
 - `.txt`
+- `.mp3`, `.wav` (audio)
+- `.mp4`, `.mov`, `.webm`, `.avi` (video)
 
 ## Backend API Endpoints
 
@@ -120,7 +122,6 @@ python backend/app.py
 
 - Add a `.env.example` for faster onboarding.
 - Add frontend validation for missing environment variables.
-- Add support for audio/video upload in the UI if needed.
 - Document exact file size limits and supported formats.
 
 ---
