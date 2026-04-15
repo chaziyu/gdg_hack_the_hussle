@@ -124,6 +124,24 @@ python backend/app.py
 - Add frontend validation for missing environment variables.
 - Document exact file size limits and supported formats.
 
+## Future Roadmap
+
+### 1. Automated Centralization via Google Drive Integration
+
+**The Vision:** Currently, DriveBot relies on local file uploads. Our next step is integrating the Google Workspace API to connect directly to a shared Event Google Drive. Instead of requiring a user to manually upload files, DriveBot will automatically index new syllabi, schedules, or spreadsheets dropped into the Drive, achieving a true zero-friction data pipeline.
+
+### 2. Passive Telegram Intelligence
+
+**The Vision:** Our current telegram_listener.py successfully updates task statuses when prompted. We plan to evolve this using the Telegram API into a passive listener. The bot will monitor team group chats, automatically extracting actionable items, deadlines, and decisions hidden in long chat threads, and update the knowledge base without anyone having to issue a direct command.
+
+### 3. Full Google Workspace Execution
+
+**The Vision:** We want to expand DriveBot's Agentic Actions. Using the Google Workspace API, the AI won't just read data—it will create it. It will autonomously draft meeting minutes in Google Docs, organize timelines in Sheets, and inject hard deadlines directly into the committee's Google Calendar to prevent scheduling bottlenecks.
+
+### 4 & 5. Optimizing Prompts, Data Structures, and API Costs
+
+**The Vision:** To make this enterprise-ready, we will refine our prompt engineering and data passing structures. By fully optimizing Gemini's Long-Context Caching, we can maintain the AI's memory of hundreds of pages of project history while reducing token costs by up to 90%. This ensures DriveBot remains highly efficient and cost-effective, even when handling massive amounts of event data.
+
 ---
 
 Built to turn event planning documents into actionable intelligence. 🚀
