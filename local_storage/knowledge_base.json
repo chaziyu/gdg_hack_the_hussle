@@ -1,60 +1,71 @@
 {
     "event_planning": {
-        "event_name": "MHW Event 2025 (Mental Health Wellness)",
-        "event_summary": "The MHW Event 2025 is a comprehensive week-long initiative focused on student well-being and emotional expression. The event incorporates a variety of interactive activities including DIY Art Making, Station Games, and a Colour Run. Central to the program is the 'Wall of Thoughts' where students share feelings via sticky notes, alongside the 'Share Your Love' campaign, all designed to foster a supportive and expressive campus environment.",
-        "event_venue": "Campus Venue (TBC)",
-        "event_date": "3rd November 2025 - 7th November 2025",
-        "objectives": "To facilitate emotional expression among students, promote mental health awareness through creative and physical engagement, and provide a platform for sharing positive messages."
+        "event_name": "Opening Ceremony UMHackathon 2026 (Ant International)",
+        "event_summary": "An online opening ceremony for the UMHackathon 2026, hosted via Microsoft Teams on April 16, 2026, from 8:00 PM to 10:00 PM. The event features a guest speaker from Ant International to provide insights, vision, and motivational remarks before the problem statements are revealed."
     },
     "timeline_tasks": [
         {
-            "task_name": "DIY Art Making",
-            "assigned_to": "TBC",
-            "status": "To Do",
-            "deadline": "TBC",
-            "time": "TBC"
+            "Task": "Develop detailed timeline for UMHackathon (Domain reveal, Pre-round, Final round, Closing ceremony)",
+            "Assignee": "",
+            "Status": "Pending",
+            "Deadline": "2024-08-23",
+            "Notes": "Must include justification for each timeline phase."
         },
         {
-            "assigned_to": "TBC",
-            "task_name": "Station Games Management",
-            "status": "To Do",
-            "deadline": "TBC",
-            "time": "TBC"
+            "Task": "Brainstorm event gimmicks",
+            "Assignee": "",
+            "Status": "Pending",
+            "Deadline": "2024-08-23",
+            "Notes": "Collaborate with PnP members."
         },
         {
-            "task_name": "Colour Run Coordination",
-            "assigned_to": "TBC",
-            "status": "To Do",
-            "deadline": "TBC",
-            "time": "TBC"
+            "Task": "Identify and coordinate with PnP members",
+            "Assignee": "",
+            "Status": "Pending",
+            "Deadline": "",
+            "Notes": ""
         },
         {
-            "time": "TBC",
-            "status": "To Do",
-            "deadline": "TBC",
-            "task_name": "Package Registration",
-            "assigned_to": "TBC"
+            "Task": "Select speech topic and prepare content",
+            "Assignee": "Ant International Representative",
+            "Status": "Pending",
+            "Deadline": "",
+            "Notes": ""
         },
         {
-            "time": "TBC",
-            "task_name": "Day-of Logistics Planning",
-            "assigned_to": "Logistics Team (TBC)",
-            "status": "To Do",
-            "deadline": "TBC"
+            "Task": "Present speech on Ant International's Vision, Industry Experience, and Motivational Remarks",
+            "Assignee": "Ant International Representative",
+            "Status": "Pending",
+            "Deadline": "",
+            "Notes": ""
         },
         {
-            "status": "To Do",
-            "deadline": "7th November 2025",
-            "assigned_to": "TBC",
-            "task_name": "Wall of Thoughts (Sticky Note Activity)",
-            "time": "3rd November 2025 - 7th November 2025"
+            "Task": "Reveal official problem statements",
+            "Assignee": "Event Organizers",
+            "Status": "Pending",
+            "Deadline": "",
+            "Notes": ""
         },
         {
-            "status": "To Do",
-            "deadline": "TBC",
-            "task_name": "Share Your Love Activity",
-            "assigned_to": "TBC",
-            "time": "TBC"
+            "Task": "Find venue for Closing Ceremony",
+            "Assignee": "Logistics",
+            "Status": "Pending",
+            "Deadline": "2024-08-24",
+            "Notes": ""
+        },
+        {
+            "Task": "Find vendor for print t-shirt",
+            "Assignee": "Logistics",
+            "Status": "Pending",
+            "Deadline": "2024-08-30",
+            "Notes": ""
+        },
+        {
+            "Task": "Find new vendor for catering",
+            "Assignee": "Logistics",
+            "Status": "Pending",
+            "Deadline": "2024-08-30",
+            "Notes": ""
         }
     ]
 }

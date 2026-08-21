@@ -1,147 +1,66 @@
-﻿# DriveBot
+# DriveBot: The Telegram-Native Event Planning Agent
 
-DriveBot is an AI-powered event planning assistant that turns unstructured event documents into a structured, searchable knowledge base. It extracts the main event overview, timeline tasks, and planning details from uploaded files and makes them available through an AI-driven chat interface.
+DriveBot is an autonomous, AI-powered project management agent that lives directly inside your team's Telegram group chat. It solves the "coordination tax" by passively listening to messy team conversations, reading uploaded documents, and automatically turning them into structured project intelligence synced directly to Google Sheets.
 
-## What DriveBot Does
+No separate websites. No manual data entry. Just add the bot to your group and start planning.
 
-- Upload event planning documents: PDF, Word, Excel, CSV, text files, and media (MP3, MP4).
-- Extract the event name, date, venue, summary, and timeline tasks.
-- Store event knowledge locally in `local_storage/`.
-- Answer questions about the event through AI chat.
-- Sync extracted timeline data to Google Sheets.
-- Send Telegram alerts for event summaries and reminders.
-- Clear chat, knowledge, and file history for fresh runs.
+## 🌟 The Hackathon Problem & Solution
 
-## How It Works
+**The Problem:** Student projects stall because information stays scattered across chat threads, PDFs, and separate web portals. When students get busy, they stop manually updating external task managers.
+**The Solution:** DriveBot brings the project manager *to* the users. By operating entirely within Telegram, friction is reduced to zero. DriveBot uses **Google Gemini** (with Long-Context Caching and Structured Outputs) to understand conversations, read multimodal documents (PDFs, TXT), and execute agentic actions (updating databases and spreadsheets).
 
-- **Frontend**: React + Vite.
-- **Backend**: Flask served by Waitress.
-- **AI Core**: Google GenAI with `gemini-3.1-flash-lite-preview` and fallback models.
-- **Persistence**: Local JSON storage under `local_storage/`.
-- **Integrations**: Google Sheets, Telegram, and Google service account authentication.
+## 🚀 Key Features
 
-## Key Features
+- **Telegram-Native:** Operates entirely within your group chat. Zero UI to learn, zero websites to visit.
+- **Intelligent Batching:** Passively collects messages in a bucket and processes them in batches (every 50 messages) to extract action items without hitting rate limits or spamming the chat.
+- **Multimodal Ingestion:** Drop a `.pdf` syllabus or `.txt` meeting transcript directly into the chat. DriveBot will read it and update the event plan.
+- **Structured Outputs:** Uses strict Pydantic schemas to ensure Gemini extracts data perfectly every time.
+- **Google Sheets Sync:** While Telegram handles the chat, DriveBot pushes all extracted timelines and tasks to a Google Sheet for easy, centralized viewing.
+- **On-Demand Summaries:** Type `/summarize` at any time to force DriveBot to analyze recent chat history and update the task board.
 
-- **Document ingestion**: upload supported documents and parse them with AI.
-- **Event intelligence**: build a unified event plan and timeline task list.
-- **Conversational AI**: query the extracted knowledge via chat.
-- **Google Sheets sync**: push timeline rows to a spreadsheet.
-- **Telegram notifications**: broadcast summaries and reminders.
-- **Resilient AI fallback**: automatic model failover on quota/API issues.
+## 🛠 Tech Stack
 
-## Supported Upload Types
+- **AI Engine:** Google Gemini (via `google-genai` SDK) utilizing Flash models for speed.
+- **Bot Framework:** `python-telegram-bot` for robust group chat listening and command handling.
+- **Data Enforcement:** Pydantic for rigid JSON schema generation (Structured Outputs).
+- **Integrations:** Google Sheets API.
+- **Persistence:** Local JSON for rapid prototyping, easily swappable to SQLite.
 
-- `.pdf`
-- `.doc`, `.docx`
-- `.xls`, `.xlsx`
-- `.csv`
-- `.txt`
-- `.mp3`, `.wav` (audio)
-- `.mp4`, `.mov`, `.webm`, `.avi` (video)
+## 🏗 Architecture & Program Flow
 
-## Backend API Endpoints
+1. **The Bucket (Ingestion):** DriveBot listens to the Telegram group. Normal chat messages are buffered in memory. Direct tags (`@DriveBot`) or file uploads are processed immediately.
+2. **The Trigger:** When the message buffer hits 50 messages, or someone types `/summarize`, the batch is sent to Gemini.
+3. **The Brain (Extraction):** Gemini reads the batch or uploaded file. Using predefined Pydantic schemas, it determines if new tasks were assigned or if event details changed.
+4. **The Action (Function Calling):** Gemini outputs perfect JSON, which triggers Python tools to update local storage and push changes to Google Sheets.
+5. **The Feedback:** DriveBot replies to the Telegram group: *"✅ I've updated the timeline in Google Sheets!"*
 
-- `POST /api/generate` — upload files and sync knowledge.
-- `POST /api/chat` — ask questions about the event.
-- `GET /api/knowledge` — fetch extracted event and timeline data.
-- `GET /api/files` — list indexed uploaded files.
-- `POST /api/settings/event` — update the event name.
-- `GET|POST /api/settings/calendar` — get or set the calendar ID.
-- `GET /api/actions/summarize` — send an event summary to Telegram.
-- `GET /api/actions/reminders` — send task reminders to Telegram.
-- `POST /api/chat/clear` — clear chat history.
-- `POST /api/knowledge/clear` — clear extracted knowledge.
-- `POST /api/files/clear` — clear file logs and indexes.
+## ⚙️ Setup & Installation
 
-## Requirements
+1. Install dependencies:
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+2. Set up your `.env` file in the root directory:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key
+   TELEGRAM_BOT_TOKEN=your_bot_token
+   TELEGRAM_ADMIN_CHAT_ID=your_chat_id
+   SPREADSHEET_ID=your_google_sheet_id
+   ```
+3. (Important) Disable Privacy Mode for your bot via `@BotFather` on Telegram so it can read group messages.
+4. Run the agent!
+   ```bash
+   python backend/telegram_listener.py
+   ```
 
-- Node.js 18+
-- Python 3.10+
-- `service_account.json` placed in the project root.
+*(Note: The React frontend in `src/` is deprecated in favor of this zero-friction Telegram-only architecture).*
 
-## Setup
+## 🔮 Future Roadmap
+- **Google Drive Integration:** Automatically monitor a shared Google Drive folder for new files, in addition to Telegram uploads.
+- **Calendar Injection:** Use Google Calendar API to automatically schedule deadlines extracted from the chat.
+- **Long-Context Memory:** Fully implement Gemini's Context Caching to remember weeks of chat history at a 90% discount on token costs.
 
-1. Install frontend dependencies:
+## Link
+Google AppScript Link: https://script.google.com/u/0/home/projects/1Ly9pE6YutUJHdKlA1xj3KKVFnWfPJaVbVg5PZL7MDYm17X_ZgJYDPmls/edit
 
-```powershell
-npm install
-```
-
-2. Install backend dependencies:
-
-```powershell
-pip install -r backend/requirements.txt
-```
-
-3. Create a `.env` file in the project root:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_ADMIN_CHAT_ID=your_telegram_chat_id
-SPREADSHEET_ID=your_google_sheet_id
-GOOGLE_CALENDAR_ID=optional_google_calendar_id
-```
-
-4. Place `service_account.json` in the project root.
-
-## Run Locally
-
-Start the app using the host script:
-
-```powershell
-./host_system.ps1
-```
-
-This script installs backend dependencies, builds the React frontend, and starts the Flask server on `http://localhost:5000`.
-
-## Manual Run
-
-If you want to run the backend manually:
-
-```powershell
-npm run build
-python backend/app.py
-```
-
-## Project Structure
-
-- `backend/` — Flask backend, AI orchestration, and integration code.
-- `src/` — React frontend source.
-- `local_storage/` — local JSON databases for event planning and timeline tasks.
-- `service_account.json` — Google service account credentials.
-- `host_system.ps1` — build and run script.
-
-## Notes
-
-- Extracted event data is stored in `local_storage/event_planning.json` and `local_storage/timeline_tasks.json`.
-- Frontend currently supports document uploads and chat interaction.
-- Google Sheets and Telegram features require valid environment configuration.
-
-## Suggested Improvements
-
-- Add a `.env.example` for faster onboarding.
-- Add frontend validation for missing environment variables.
-- Document exact file size limits and supported formats.
-
-## Future Roadmap
-
-### 1. Automated Centralization via Google Drive Integration
-
-**The Vision:** Currently, DriveBot relies on local file uploads. Our next step is integrating the Google Workspace API to connect directly to a shared Event Google Drive. Instead of requiring a user to manually upload files, DriveBot will automatically index new syllabi, schedules, or spreadsheets dropped into the Drive, achieving a true zero-friction data pipeline.
-
-### 2. Passive Telegram Intelligence
-
-**The Vision:** Our current telegram_listener.py successfully updates task statuses when prompted. We plan to evolve this using the Telegram API into a passive listener. The bot will monitor team group chats, automatically extracting actionable items, deadlines, and decisions hidden in long chat threads, and update the knowledge base without anyone having to issue a direct command.
-
-### 3. Full Google Workspace Execution
-
-**The Vision:** We want to expand DriveBot's Agentic Actions. Using the Google Workspace API, the AI won't just read data—it will create it. It will autonomously draft meeting minutes in Google Docs, organize timelines in Sheets, and inject hard deadlines directly into the committee's Google Calendar to prevent scheduling bottlenecks.
-
-### 4 & 5. Optimizing Prompts, Data Structures, and API Costs
-
-**The Vision:** To make this enterprise-ready, we will refine our prompt engineering and data passing structures. By fully optimizing Gemini's Long-Context Caching, we can maintain the AI's memory of hundreds of pages of project history while reducing token costs by up to 90%. This ensures DriveBot remains highly efficient and cost-effective, even when handling massive amounts of event data.
-
----
-
-Built to turn event planning documents into actionable intelligence. 🚀
+Google Sheet Link: https://docs.google.com/spreadsheets/d/1DpXHD8i7Kj0A8bMdfQswaXz2ZHkmwiJmI9ddc3eegUM/edit?gid=0#gid=0 
